@@ -15,7 +15,7 @@ endif()
 find_package(Catch2 REQUIRED)
 include(Catch)
 
-# ---- Tests ----
+# ---- Tests ----s
 
 add_executable(chesslib_test source/chesslib_test.cpp)
 target_link_libraries(
