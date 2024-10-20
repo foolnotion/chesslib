@@ -41,13 +41,15 @@
               linuxPackages_latest.perf
 
               # deps
-              fmt
               catch2_3
-              magic-enum
               cpptrace
+              fmt
+              gch-small-vector
               libassert
-              zstd
               libdwarf
+              magic-enum
+              unordered_dense
+              zstd
             ];
           };
 
@@ -60,13 +62,14 @@
             cmakeBuildType = "Release";
 
             buildInputs = with pkgs; [
-              fmt
-              catch2_3
-              magic-enum
               cpptrace
+              fmt
+              gch-small-vector
               libassert
-              zstd
               libdwarf
+              magic-enum
+              unordered-dense
+              zstd
             ];
           };
         };

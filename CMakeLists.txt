@@ -34,7 +34,16 @@ target_compile_features(chesslib_chesslib INTERFACE cxx_std_20)
 find_package(fmt CONFIG REQUIRED)
 find_package(libassert CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
-target_link_libraries(chesslib_chesslib INTERFACE fmt::fmt magic_enum::magic_enum libassert::assert)
+find_package(small_vector CONFIG REQUIRED)
+find_package(unordered_dense CONFIG REQUIRED)
+target_link_libraries(chesslib_chesslib
+    INTERFACE
+    fmt::fmt
+    gch::small_vector
+    libassert::assert
+    magic_enum::magic_enum
+    unordered_dense::unordered_dense
+)
 
 # ---- Install rules ----
 
