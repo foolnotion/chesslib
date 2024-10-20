@@ -6,6 +6,7 @@
 #include <fmt/core.h>
 
 #include "board/encoding.hpp"
+#include "board/move_generator.hpp"
 
 namespace chesslib {
 

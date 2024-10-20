@@ -4,6 +4,7 @@
 #include <array>
 #include <cctype>
 #include <cstdint>
+#include <gch/small_vector.hpp>
 
 namespace chesslib {
 
@@ -19,10 +20,28 @@ using u16 = std::uint16_t;
 using u32 = std::uint32_t;
 using u64 = std::uint64_t;
 
+// use a bit-field struct to encode a chess move
+struct move {
+    u8 source_square : 7;
+    u8 target_square : 7;
+    u8 promotion     : 4;
+    u8 capture       : 1;
+    u8 double_pawn   : 1;
+    u8 enpassant     : 1;
+    u8 castling      : 1;
+};
+
+// a stack-allocated vector to hold the move list
+static constexpr auto move_list_capacity{256};
+using move_list = gch::small_vector<move, move_list_capacity>;
+
 // pieces
 enum class piece : u8 {
     king, queen, rook, bishop, knight, pawn, none
 };
+
+template<piece... P>
+inline auto is(piece p) { return ((p == P), ...); }
 
 static constexpr auto char2piece(char c) {
     switch(c) {
@@ -51,6 +70,7 @@ enum square : u8 {
     a6 =  80, b6, c6, d6, e6, f6, g6, h6, // 6th row
     a7 =  96, b7, c7, d7, e7, f7, g7, h7, // 7th row
     a8 = 112, b8, c8, d8, e8, f8, g8, h8, // 8th row
+    none
 };
 
 // castling rights
@@ -59,6 +79,12 @@ enum class castle : u8 {
     wq = 1U << 1U,
     bk = 1U << 2U,
     bq = 1U << 3U
+};
+
+// side to move
+enum class side : u8 {
+    white = 1U << 0U,
+    black = 1U << 1U
 };
 
 // ascii pieces for printing
