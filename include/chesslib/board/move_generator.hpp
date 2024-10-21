@@ -171,7 +171,6 @@ struct move_generator {
                     // check if the king is on the initial square
                     // can I castle on the king side?
                     if (me::enum_integer(castling & kingside) != 0) {
-                        fmt::print("{} can castle kingside\n", side ? "white" : "black");
                         auto path = side ? std::array{square::f1, square::g1}
                                          : std::array{square::f8, square::g8};
 
@@ -182,9 +181,10 @@ struct move_generator {
                             auto j = me::enum_integer(path.back());
                             add_move(i, j, 0, 0, 0, me::enum_integer(side ? castle::wk : castle::bk));
                         }
-                    } else if (me::enum_integer(castling & queenside) != 0) {
-                        auto path = side ? std::array{square::d1, square::c1, square::b1}
-                                         : std::array{square::d8, square::c8, square::b8};
+                    }
+                    if (me::enum_integer(castling & queenside) != 0) {
+                        auto path = side ? std::array{square::d1, square::c1}
+                                         : std::array{square::d8, square::c8};
                                           if (std::ranges::all_of(path, [&](auto x) {
                             return pieces[x] == piece::none && !board.is_attacked(x, side ? side::black : side::white);
                         })) {
