@@ -1,0 +1,3 @@
+[submodule "thirdparty/small_vector"]
+	path = thirdparty/small_vector
+	url = https://github.com/gharveymn/small_vector.git

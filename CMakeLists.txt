@@ -34,8 +34,11 @@ target_compile_features(chesslib_chesslib INTERFACE cxx_std_20)
 find_package(fmt CONFIG REQUIRED)
 find_package(libassert CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
-find_package(small_vector CONFIG REQUIRED)
 find_package(unordered_dense CONFIG REQUIRED)
+
+# small_vector is vendored in
+add_subdirectory(thirdparty/small_vector)
+
 target_link_libraries(chesslib_chesslib
     INTERFACE
     fmt::fmt
