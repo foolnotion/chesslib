@@ -39,12 +39,12 @@
               # dev
               gdb
               linuxPackages_latest.perf
+              valgrind
 
               # deps
               catch2_3
               cpptrace
               fmt
-              gch-small-vector
               libassert
               libdwarf
               magic-enum
