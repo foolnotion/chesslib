@@ -272,6 +272,41 @@ TEST_CASE("king moves", "[library]")
         helpers::print(board, pred, "▢", fmt::color::blue);
         fmt::print("\n");
     }
+
+    SECTION("8/8/8/3K4/8/4K3/8/8") {
+        chesslib::move_list moves;
+
+        chesslib::board board{"8/8/8/3K4/8/4k3/8/8"};
+        board.side() = side::white;
+        chesslib::move_generator gen{board};
+        fmt::print("side to move: {}\n", me::enum_name(board.side()));
+        gen.moves(moves);
+
+        ankerl::unordered_dense::map<u8, u8> squares;
+        auto pred = [&](auto& b, auto s) {
+            return squares.contains(s);
+        };
+
+        for (auto const& m : moves) {
+            auto p = board.pieces[m.source_square];
+            if (p != piece::king) { continue; }
+            squares.insert({static_cast<u8>(m.target_square), static_cast<u8>(m.source_square)});
+        }
+        helpers::print(board, pred, "▢", fmt::color::blue);
+        fmt::print("\n");
+
+        board.side() = side::black;
+        fmt::print("side to move: {}\n", me::enum_name(board.side()));
+        gen.moves(moves);
+        squares.clear();
+        for (auto const& m : moves) {
+            auto p = board.pieces[m.source_square];
+            if (p != piece::king) { continue; }
+            squares.insert({static_cast<u8>(m.target_square), static_cast<u8>(m.source_square)});
+        }
+        helpers::print(board, pred, "▢", fmt::color::blue);
+        fmt::print("\n");
+    }
 }
 
 TEST_CASE("attacked squares", "[library]")
@@ -292,6 +327,12 @@ TEST_CASE("attacked squares", "[library]")
 
     SECTION("8/7p/8/7k/2K1N3/6Q1/5B2/8") {
         chesslib::board board{"8/7p/8/7k/2K1N3/6Q1/5B2/8"};
+        helpers::print(board, pred, "▢", fmt::color::red);
+        fmt::print("\n");
+    }
+
+    SECTION("8/8/8/8/3K4/8/8/8") {
+        chesslib::board board{"8/8/8/8/3K4/8/8/8"};
         helpers::print(board, pred, "▢", fmt::color::red);
         fmt::print("\n");
     }
