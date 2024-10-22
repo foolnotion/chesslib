@@ -5,26 +5,26 @@
 namespace chesslib::test {
 namespace helpers {
 auto print(board const& b, auto&& pred, char const* marker, fmt::color color) {
-        auto const& pieces = b.pieces;
-        auto const& colors = b.colors;
-        auto constexpr n = coord::nrow;
-        for (auto i = n - 1; i >= 0; --i) {
-            for (auto j = 0; j < n; ++j) {
-                auto const s = coord::square(i, j);
-                auto const p = me::enum_integer(pieces[s]);
-                auto const* c = piece_symbols[colors[s] == color::white ? 0 : 1][p];
-                auto fg = fmt::color::white;
-                if (pred(b, s)) {
-                    if (c == std::string{" "}) { c = marker; }
-                    fg = color;
-                }
-
-                fmt::print(fmt::bg((coord::file(s) + coord::rank(s)) % 2 == 0
-                                        ? fmt::color::dim_gray
-                                        : fmt::color::gray) | fmt::fg(fg), "{} ", c);
+    auto const& pieces = b.pieces;
+    auto const& colors = b.colors;
+    auto constexpr n = coord::nrow;
+    for (auto i = n - 1; i >= 0; --i) {
+        for (auto j = 0; j < n; ++j) {
+            auto const s = coord::square(i, j);
+            auto const p = me::enum_integer(pieces[s]);
+            auto const* c = piece_symbols[colors[s] == color::white ? 0 : 1][p];
+            auto fg = fmt::color::white;
+            if (pred(b, s)) {
+                if (c == std::string{" "}) { c = marker; }
+                fg = color;
             }
-            fmt::print("\n");
+
+            fmt::print(fmt::bg((coord::file(s) + coord::rank(s)) % 2 == 0
+                                    ? fmt::color::dim_gray
+                                    : fmt::color::gray) | fmt::fg(fg), "{} ", c);
         }
+        fmt::print("\n");
+    }
     };
 } // namespace helpers
 
@@ -311,29 +311,24 @@ TEST_CASE("king moves", "[library]")
 
 TEST_CASE("attacked squares", "[library]")
 {
-    auto pred = [](auto& b, auto s) { return b.is_attacked(s, side::white); };
+    auto attacked = [](auto& b, auto s) { return b.is_attacked(s, b.side()); };
 
-    SECTION("3rr3/1p1kbQ2/p1p1n3/q2p1Bp1/3P4/2N1P1P1/PP4P1/4RRK1") {
-        chesslib::board board{"3rr3/1p1kbQ2/p1p1n3/q2p1Bp1/3P4/2N1P1P1/PP4P1/4RRK1"};
-        helpers::print(board, pred, "▢", fmt::color::red);
-        fmt::print("\n");
-    }
+    constexpr std::array test_cases = {
+        "3rr3/1p1kbQ2/p1p1n3/q2p1Bp1/3P4/2N1P1P1/PP4P1/4RRK1 w",
+        "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w",
+        "8/7p/8/7k/2K1N3/6Q1/5B2/8 w",
+        "8/8/8/8/3K4/8/8/8 w",
+        "5rr1/8/8/8/8/8/q3PP2/R3K2R w",
+        "5rr1/8/8/8/8/5p2/q3PP2/R3K2R w",
+        "8/8/2r3n1/8/4B3/5N2/2R3P1/8 w",
+        "8/8/2r3n1/8/4B3/5n2/2q3p1/8 w",
+        "8/8/2r3n1/8/4B3/5n2/2q3p1/8 b"
+    };
 
-    SECTION("rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR") {
-        chesslib::board board{"rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR"};
-        helpers::print(board, pred, "▢", fmt::color::red);
-        fmt::print("\n");
-    }
-
-    SECTION("8/7p/8/7k/2K1N3/6Q1/5B2/8") {
-        chesslib::board board{"8/7p/8/7k/2K1N3/6Q1/5B2/8"};
-        helpers::print(board, pred, "▢", fmt::color::red);
-        fmt::print("\n");
-    }
-
-    SECTION("8/8/8/8/3K4/8/8/8") {
-        chesslib::board board{"8/8/8/8/3K4/8/8/8"};
-        helpers::print(board, pred, "▢", fmt::color::red);
+    for (auto const* fen : test_cases) {
+        fmt::print("{}\n", fen);
+        chesslib::board board{fen};
+        helpers::print(board, attacked, "▢", board.side() == side::white ? fmt::color::red : fmt::color::blue);
         fmt::print("\n");
     }
 }
