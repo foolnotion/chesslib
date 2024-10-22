@@ -105,6 +105,7 @@ struct move_generator {
                     // pawn captures
                     {
                         for (u8 j : {i + capture_left, i + capture_right}) {
+                            if (!coord::valid(j)) { continue; }
                             auto [q, d] = board[j];
                             // can I capture a piece of the opposite color?
                             // or, can I capture en-passant?
