@@ -136,8 +136,8 @@ class board
             auto c = side == side::white ? color::white : color::black;
             return std::ranges::any_of(offsets, [&](auto a) {
                 if (auto j = square_idx + a; coord::valid(j)) {
-                    auto const p = board.pieces[j];
-                    return ((p == Pieces) || ...) && c == board.colors[j];
+                    auto const [p, d] = board[j];
+                    return ((p == Pieces) || ...) && c == d;
                 }
                 return false;
             });
@@ -153,11 +153,11 @@ class board
             auto c = side == side::white ? color::white : color::black;
             return std::ranges::any_of(offsets, [&](auto a) {
                 for (auto j = square_idx + a; coord::valid(j); j += a) {
-                    auto const p = board.pieces[j];
-                    if (((p == Pieces) || ...) && c == board.colors[j]) {
+                    auto const [p, d] = board[j];
+                    if (((p == Pieces) || ...) && c == d) {
                         return true;
                     }
-                    if (board.pieces[j] != piece::none) { break; }
+                    if (p != piece::none) { break; }
                 }
                 return false;
             });
@@ -252,27 +252,80 @@ class board
         u8 rank = 0;
         u8 sq   = 0;
 
-        auto row = static_cast<u8>(square::a8);
-        for (auto line : std::ranges::views::split(fen, '/')) {
-            auto sq = row;
-            for (auto c : line) {
-                if (std::isdigit(c) != 0) {
-                    auto s = sq;
-                    for (; s < sq + c - '0'; ++s) {
-                        pieces[s] = piece::none;
-                        colors[s] = color::none;
+        using namespace me::bitwise_operators;
+
+        auto n = 0;
+        for (auto field : std::ranges::views::split(fen, ' ')) {
+            switch(n++) {
+                case 0: {
+                    // parse position
+                    auto row = static_cast<u32>(square::a8);
+                    for (auto line : std::ranges::views::split(field, '/')) {
+                        auto sq = row;
+                        for (auto c : line) {
+                            if (std::isdigit(c) != 0) {
+                                ASSERT(c-'0' <= 8, "fen digit cannot exceed 8");
+                                auto s = sq;
+                                for (; s < sq + c - '0'; ++s) {
+                                    pieces[s] = piece::none;
+                                    colors[s] = color::none;
+                                }
+                                sq = s;
+                                continue;
+                            }
+                            if (std::isalpha(c) != 0) {
+                                auto col   = std::isupper(c) != 0 ? color::white : color::black;
+                                pieces[sq] = char2piece(static_cast<char>(std::tolower(c)));
+                                colors[sq] = col;
+                                ++sq;
+                            }
+                        }
+                        row -= coord::ncol;
                     }
-                    sq = s;
-                    continue;
+                    break;
                 }
-                if (std::isalpha(c) != 0) {
-                    auto col   = std::isupper(c) != 0 ? color::white : color::black;
-                    pieces[sq] = char2piece(static_cast<char>(std::tolower(c)));
-                    colors[sq] = col;
-                    ++sq;
+                case 1: {
+                    // parsing side to move
+                    side_ = field.front() == 'w' ? side::white : side::black;
+                    break;
+                }
+                case 2: {
+                    // parsing castling rights
+                    u8 castle = 0;
+                    for (auto c : field) {
+                        switch(c) {
+                            case 'W':
+                                castle |= me::enum_integer(castle::wk);
+                                break;
+                            case 'Q':
+                                castle |= me::enum_integer(castle::wq);
+                                break;
+                            case 'w':
+                                castle |= me::enum_integer(castle::bk);
+                                break;
+                            case 'q':
+                                castle |= me::enum_integer(castle::wq);
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                }
+                case 3: {
+                    // parsing en-passant
+                    auto res = me::enum_cast<square>(std::string_view{field.begin(), field.end()});
+                    if (res) {
+                        enpassant_ = res.value();
+                    }
+                    break;
+                }
+                default: {
+                    // ignore the rest for now:
+                    // - halfmove clock
+                    // - fullmove number
+                    break;
                 }
             }
-            row -= coord::ncol;
         }
     }
 

@@ -15,7 +15,7 @@ using i32 = std::int32_t;
 using i64 = std::int64_t;
 
 // unsigned types
-using u8 = std::uint8_t;
+using u8  = std::uint8_t;
 using u16 = std::uint16_t;
 using u32 = std::uint32_t;
 using u64 = std::uint64_t;
@@ -75,10 +75,10 @@ enum square : u8 {
 
 // castling rights
 enum class castle : u8 {
-    wk = 1U << 0U,
-    wq = 1U << 1U,
-    bk = 1U << 2U,
-    bq = 1U << 3U
+    wk = 1U << 0U, // => 0001
+    wq = 1U << 1U, // => 0010
+    bk = 1U << 2U, // => 0100
+    bq = 1U << 3U  // => 1000
 };
 
 // side to move

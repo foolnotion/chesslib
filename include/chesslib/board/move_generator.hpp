@@ -14,10 +14,11 @@ namespace helpers {
 } // namespace helpers
 
 struct move_generator {
+    board const& board; // NOLINT
+
     auto moves(move_list& m) const {
         auto const side     = board.white_to_move();
         auto const castling = board.castling();
-
         auto const& pieces  = board.pieces;
         auto const& colors  = board.colors;
 
@@ -42,15 +43,13 @@ struct move_generator {
         };
 
         auto ready_to_promote = [&](auto i) {
-            auto [a, b] = side ? std::tuple{square::a7, square::h7}
-                               : std::tuple{square::a2, square::h2};
-            return i >= a && i <= b;
+            return side ? (i >= square::a7 && i <= square::h7)
+                        : (i >= square::a2 && i <= square::h2);
         };
 
         auto is_on_start = [&](auto i) {
-            auto [a, b] = side ? std::tuple{square::a2, square::h2}
-                               : std::tuple{square::a7, square::h7};
-            return i >= a && i <= b;
+            return side ? (i >= square::a2 && i <= square::a2)
+                        : (i >= square::a7 && i <= square::h7);
         };
 
         auto add_sliding = [&](auto const& offsets, auto i) {
@@ -60,20 +59,19 @@ struct move_generator {
                     if (pieces[j] != piece::none) { break; }
                     auto [q, d] = board[j];
                     if (c == d) { continue; }
-                    add_move(i, j, 0, (q != piece::none && d != c), 0, 0);
+                    add_move(i, j, 0, (q != piece::none && q != piece::king && d != c), 0, 0);
                 }
             }
         };
 
         for (u8 i = 0; i < detail_0x88::sz; ++i) {
+            if (!coord::valid(i)) { continue; }
             // get source square piece and color
             auto const [p, c] = board[i];
             if (p == piece::none) { continue; }
 
             auto mycolor = side ? color::white : color::black;
-            if (c != mycolor) {
-                continue;
-            }
+            if (c != mycolor) { continue; }
 
             switch(p) {
                 case piece::pawn: {
@@ -203,9 +201,6 @@ struct move_generator {
             }
         }
     }
-
-    board& board; // NOLINT
-
 }; // generator
 }  // namespace chesslib
 
