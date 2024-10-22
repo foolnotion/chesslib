@@ -127,6 +127,43 @@ struct coord
 
 class board
 {
+    template<bool Sliding = false, piece... Pieces>
+    struct attack_checker {
+        board const& board;
+
+        auto operator()(auto const& offsets, auto square_idx, auto side) {
+            if (!coord::valid(square_idx)) { return false; }
+            auto c = side == side::white ? color::white : color::black;
+            return std::ranges::any_of(offsets, [&](auto a) {
+                if (auto j = square_idx + a; coord::valid(j)) {
+                    auto const p = board.pieces[j];
+                    return ((p == Pieces) || ...) && c == board.colors[j];
+                }
+                return false;
+            });
+        }
+    };
+
+    template<piece... Pieces>
+    struct attack_checker<true, Pieces...> {
+        board const& board;
+
+        auto operator()(auto const& offsets, auto square_idx, auto side) {
+            if (!coord::valid(square_idx)) { return false; }
+            auto c = side == side::white ? color::white : color::black;
+            return std::ranges::any_of(offsets, [&](auto a) {
+                for (auto j = square_idx + a; coord::valid(j); j += a) {
+                    auto const p = board.pieces[j];
+                    if (((p == Pieces) || ...) && c == board.colors[j]) {
+                        return true;
+                    }
+                    if (board.pieces[j] != piece::none) { break; }
+                }
+                return false;
+            });
+        }
+    };
+
     public:
     static constexpr std::array pawn_offsets  {+15, +16, +17, +32};
     static constexpr std::array knight_offsets{33, 31, 18, 14, -33, -31, -18, -14};
@@ -158,68 +195,22 @@ class board
 
     auto is_attacked(u8 i, side s) const -> bool
     {
-        using std::ranges::any_of;
-
+        // if a piece of the same color is on square i,
+        // then return false (cannot attack our own piece)
         auto c = s == side::white ? color::white : color::black;
-        auto valid_color = [&](auto i, auto j) { return colors[j] == c && colors[i] != colors[j]; };
+        if (c == colors[i]) { return false; }
+        using enum piece;
 
         // pawn attacks
-        auto attacks = s == side::white
+        auto pawn_capture_offsets = s == side::white
             ? std::array{coord::sw, coord::se}
             : std::array{coord::nw, coord::ne};
-        if(
-            any_of(attacks, [&](auto a) {
-                u8 const j = i+a;
-                return coord::valid(j) && pieces[j] == piece::pawn && valid_color(i, j);
-            })
-        ) { return true; }
 
-        // knight attacks
-        if(
-            any_of(knight_offsets, [&](auto a) {
-                u8 const j = i+a;
-                return coord::valid(j) && pieces[j] == piece::knight && valid_color(i, j);
-            })
-        ) { return true; }
-
-        // bishop and queen attacks
-        if(
-            any_of(bishop_offsets, [&](auto a) {
-                for (auto j = i + a; coord::valid(j); j += a) {
-                    auto p = pieces[j];
-
-                    if (coord::valid(j) && (p == piece::queen || p == piece::bishop) && valid_color(i, j)) {
-                        return true;
-                    }
-                    if (pieces[j] != piece::none) { break; }
-                }
-                return false;
-            })
-        ) { return true; }
-
-        // rook and queen attacks
-        if(
-            any_of(rook_offsets, [&](auto a) {
-                for (auto j = i+a; coord::valid(j); j += a) {
-                    auto p = pieces[j];
-                    if (coord::valid(j) && (p == piece::queen || p == piece::rook) && valid_color(i, j)) {
-                        return true;
-                    }
-                    if (pieces[j] != piece::none) { break; }
-                }
-                return false;
-            })
-        ) { return true; }
-
-        // king attacks
-        if(
-            any_of(king_offsets, [&](auto a) {
-                u8 const j = i+a;
-                return coord::valid(j) && pieces[j] == piece::king && valid_color(i, j);
-            })
-        ) { return true; } // NOLINT
-
-        return false;
+        return attack_checker</*sliding=*/false, pawn>{*this}(pawn_capture_offsets, i, s) ||
+               attack_checker</*sliding=*/false, knight>{*this}(knight_offsets, i, s) ||
+               attack_checker</*sliding=*/true , bishop, queen>{*this}(bishop_offsets, i, s) ||
+               attack_checker</*sliding=*/true , rook, queen>{*this}(rook_offsets, i, s) ||
+               attack_checker</*sliding=*/false, king>{*this}(king_offsets, i, s);
     }
 
     auto is_attacked(square sq, side s) const -> bool
@@ -275,8 +266,7 @@ class board
                     continue;
                 }
                 if (std::isalpha(c) != 0) {
-                    auto col =
-                        std::isupper(c) != 0 ? color::white : color::black;
+                    auto col   = std::isupper(c) != 0 ? color::white : color::black;
                     pieces[sq] = char2piece(static_cast<char>(std::tolower(c)));
                     colors[sq] = col;
                     ++sq;
@@ -301,19 +291,17 @@ class board
             for (auto j = 0; j < n; ++j) {
                 auto const s = coord::square(i, j);
                 auto const p = me::enum_integer(pieces[s]);
-                const auto* c =
-                    piece_symbols[colors[s] == color::white ? 0 : 1][p];
+                const auto* c = piece_symbols[colors[s] == color::white ? 0 : 1][p];
                 fmt::print(fmt::bg((coord::file(s) + coord::rank(s)) % 2 == 0
                                        ? fmt::color::dim_gray
-                                       : fmt::color::gray),
-                           "{} ",
-                           c);
+                                       : fmt::color::gray), "{} ", c);
             }
             fmt::print("\n");
         }
     }
 
     auto side() const -> side { return side_; }
+    auto side() -> enum side& { return side_; }
     auto enpassant() const -> square { return enpassant_; }
     auto white_to_move() const -> bool { return side_ == side::white; }
     auto black_to_move() const -> bool { return side_ == side::black; }
