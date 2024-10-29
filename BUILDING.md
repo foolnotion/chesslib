@@ -36,10 +36,35 @@ cmake -S . -B build -TClangCL -Dchesslib_DEVELOPER_MODE=1 -DCMAKE_TOOLCHAIN_FILE
 cmake --build build -j -t chesslib_test
 ```
 
-### Building on Apple Silicon
+### Building on WSL/Ubuntu
 
-CMake supports building on Apple Silicon properly since 3.20.1. Make sure you
-have the [latest version][1] installed.
+Install dependencies:
+
+```sh
+sudo apt update
+sudo apt install curl zip unzip tar
+sudo apt install build-essential
+sudo apt install cmake
+sudo apt install pkg-config
+sudo apt install clang
+```
+
+Install `vcpkg`:
+
+```sh
+git clone https://github.com/microsoft/vcpkg.git
+cd vcpkg
+./bootstrap-vcpkg.sh
+```
+
+Build `chesslib`:
+
+```sh
+cd chesslib
+git submodule update --init --recursive
+CXX=clang++ cmake -S . -B build -Dchesslib_DEVELOPER_MODE=1 -DCMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
+cmake --build build -j -t chesslib_test
+```
 
 ## Install
 
