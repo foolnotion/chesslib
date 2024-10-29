@@ -9,7 +9,7 @@ Here are the steps for building in release mode with a single-configuration
 generator, like the Unix Makefiles one:
 
 ```sh
-cmake -S . -B build -D CMAKE_BUILD_TYPE=Release
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -Dchesslib_DEVELOPER_MODE=1
 cmake --build build
 ```
 
@@ -21,12 +21,20 @@ cmake -S . -B build
 cmake --build build --config Release
 ```
 
-### Building with MSVC
+### Building on Windows with VCPKG
 
-Note that MSVC by default is not standards compliant and you need to pass some
-flags to make it behave properly. See the `flags-msvc` preset in the
-[CMakePresets.json](CMakePresets.json) file for the flags and with what
-variable to provide them to CMake during configuration.
+This library compiles with `clang-cl`, so make sure to install it:\
+https://learn.microsoft.com/en-us/cpp/build/clang-support-msbuild?view=msvc-170
+
+Package management on Windows is done with `vcpkg`, so it needs to be installed as well.\
+Assuming `vcpkg` is installed somewhere on your system at `$VCPKG_ROOT`:
+
+```sh
+cd chesslib
+git submodule update --init --recursive
+cmake -S . -B build -TClangCL -Dchesslib_DEVELOPER_MODE=1 -DCMAKE_TOOLCHAIN_FILE=C:\Dev\vcpkg\scripts\buildsystems\vcpkg.cmake
+cmake --build build -j -t chesslib_test
+```
 
 ### Building on Apple Silicon
 
