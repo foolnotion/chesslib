@@ -7,25 +7,26 @@
   },
   "configurePresets": [
     {
+      "name": "cmake-pedantic",
+      "hidden": true,
+      "warnings": {
+        "dev": true,
+        "deprecated": true,
+        "uninitialized": true,
+        "unusedCli": true,
+        "systemVars": false
+      },
+      "errors": {
+        "dev": true,
+        "deprecated": true
+      }
+    },
+    {
       "name": "dev-mode",
       "hidden": true,
+      "inherits": "cmake-pedantic",
       "cacheVariables": {
-        "chesslib_DEVELOPER_MODE": "ON",
-        "VCPKG_MANIFEST_FEATURES": "test"
-      }
-    },
-    {
-      "name": "vcpkg",
-      "hidden": true,
-      "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-      }
-    },
-    {
-      "name": "vcpkg-win64-static",
-      "hidden": true,
-      "cacheVariables": {
-        "VCPKG_TARGET_TRIPLET": "x64-windows-static-md"
+        "chesslib_DEVELOPER_MODE": "ON"
       }
     },
     {
@@ -75,7 +76,8 @@
       "hidden": true,
       "cacheVariables": {
         "CMAKE_CXX_FLAGS": "/sdl /guard:cf /utf-8 /diagnostics:caret /w14165 /w44242 /w44254 /w44263 /w34265 /w34287 /w44296 /w44365 /w44388 /w44464 /w14545 /w14546 /w14547 /w14549 /w14555 /w34619 /w34640 /w24826 /w14905 /w14906 /w14928 /w45038 /W4 /permissive- /volatile:iso /Zc:inline /Zc:preprocessor /Zc:enumTypes /Zc:lambda /Zc:__cplusplus /Zc:externConstexpr /Zc:throwingNew /EHsc",
-        "CMAKE_EXE_LINKER_FLAGS": "/machine:x64 /guard:cf"
+        "CMAKE_EXE_LINKER_FLAGS": "/machine:x64 /guard:cf",
+        "CMAKE_SHARED_LINKER_FLAGS": "/machine:x64 /guard:cf"
       }
     },
     {
@@ -110,13 +112,12 @@
         "CMAKE_BUILD_TYPE": "Coverage",
         "CMAKE_CXX_FLAGS_COVERAGE": "-Og -g --coverage -fkeep-inline-functions -fkeep-static-functions",
         "CMAKE_EXE_LINKER_FLAGS_COVERAGE": "--coverage",
-        "CMAKE_SHARED_LINKER_FLAGS_COVERAGE": "--coverage",
-        "CMAKE_MAP_IMPORTED_CONFIG_COVERAGE": "Coverage;RelWithDebInfo;Release;Debug;"
+        "CMAKE_SHARED_LINKER_FLAGS_COVERAGE": "--coverage"
       }
     },
     {
       "name": "ci-coverage",
-      "inherits": ["coverage-linux", "dev-mode", "vcpkg"],
+      "inherits": ["coverage-linux", "dev-mode"],
       "cacheVariables": {
         "COVERAGE_HTML_COMMAND": ""
       }
@@ -124,11 +125,10 @@
     {
       "name": "ci-sanitize",
       "binaryDir": "${sourceDir}/build/sanitize",
-      "inherits": ["ci-linux", "dev-mode", "vcpkg"],
+      "inherits": ["ci-linux", "dev-mode"],
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Sanitize",
-        "CMAKE_CXX_FLAGS_SANITIZE": "-U_FORTIFY_SOURCE -O2 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-common",
-        "CMAKE_MAP_IMPORTED_CONFIG_SANITIZE": "Sanitize;RelWithDebInfo;Release;Debug;"
+        "CMAKE_CXX_FLAGS_SANITIZE": "-U_FORTIFY_SOURCE -O2 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-common"
       }
     },
     {
@@ -146,15 +146,15 @@
     },
     {
       "name": "ci-macos",
-      "inherits": ["ci-build", "ci-darwin", "dev-mode", "ci-multi-config", "vcpkg"]
+      "inherits": ["ci-build", "ci-darwin", "dev-mode", "ci-multi-config"]
     },
     {
       "name": "ci-ubuntu",
-      "inherits": ["ci-build", "ci-linux", "clang-tidy", "vcpkg", "cppcheck", "dev-mode"]
+      "inherits": ["ci-build", "ci-linux", "clang-tidy", "cppcheck", "dev-mode"]
     },
     {
       "name": "ci-windows",
-      "inherits": ["ci-build", "ci-win64", "dev-mode", "ci-multi-config", "vcpkg", "vcpkg-win64-static"]
+      "inherits": ["ci-build", "ci-win64", "dev-mode", "ci-multi-config"]
     }
   ]
 }

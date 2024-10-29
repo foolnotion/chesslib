@@ -2,15 +2,13 @@
 #define CHESSLIB_BOARD_0X88_HPP
 
 #include <array>
-#include <ranges>
 
 #include <fmt/color.h>
 #include <fmt/core.h>
 #include <libassert/assert.hpp>
-#include <magic_enum.hpp>
-#include <magic_enum_utility.hpp>
 
 #include "chesslib/core/types.hpp"
+#include "chesslib/util/fen.hpp"
 
 namespace me = magic_enum;
 using namespace me::bitwise_operators; // NOLINT
@@ -75,46 +73,46 @@ constexpr auto default_colors() -> std::array<color, sz>
 */
 struct coord
 {
-    static constexpr u8 nrow {8};
-    static constexpr u8 ncol {16};
-    static constexpr u8 mask {0x88};
+    static constexpr u8 nrow{8};
+    static constexpr u8 ncol{16};
+    static constexpr u8 mask{0x88};
 
     // navigation offsets
-    static constexpr i8 nw {+15};  // north-west
-    static constexpr i8 no {+16};  // north
-    static constexpr i8 ne {+17};  // north-east
+    static constexpr i8 nw{+15};  // north-west
+    static constexpr i8 no{+16};  // north
+    static constexpr i8 ne{+17};  // north-east
 
-    static constexpr i8 sw {-17};  // south-west
-    static constexpr i8 so {-16};  // south
-    static constexpr i8 se {-15};  // south-east
+    static constexpr i8 sw{-17};  // south-west
+    static constexpr i8 so{-16};  // south
+    static constexpr i8 se{-15};  // south-east
 
-    static constexpr i8 we {-1};  // west
-    static constexpr i8 ea {+1};  // east
+    static constexpr i8 we{-1};  // west
+    static constexpr i8 ea{+1};  // east
 
-    static constexpr i8 nn {no + no};  // north+north
-    static constexpr i8 ss {so + so};  // south+south
-    static constexpr i8 ww {we + we};  // west+west
-    static constexpr i8 ee {ea + ea};  // east+east
+    static constexpr i8 nn{no + no};  // north+north
+    static constexpr i8 ss{so + so};  // south+south
+    static constexpr i8 ww{we + we};  // west+west
+    static constexpr i8 ee{ea + ea};  // east+east
 
     // rank identifiers
-    static constexpr u8 r1 {square::a1 >> 4U};
-    static constexpr u8 r2 {square::a2 >> 4U};
-    static constexpr u8 r3 {square::a3 >> 4U};
-    static constexpr u8 r4 {square::a4 >> 4U};
-    static constexpr u8 r5 {square::a5 >> 4U};
-    static constexpr u8 r6 {square::a6 >> 4U};
-    static constexpr u8 r7 {square::a7 >> 4U};
-    static constexpr u8 r8 {square::a8 >> 4U};
+    static constexpr u8 r1{square::a1 >> 4U};
+    static constexpr u8 r2{square::a2 >> 4U};
+    static constexpr u8 r3{square::a3 >> 4U};
+    static constexpr u8 r4{square::a4 >> 4U};
+    static constexpr u8 r5{square::a5 >> 4U};
+    static constexpr u8 r6{square::a6 >> 4U};
+    static constexpr u8 r7{square::a7 >> 4U};
+    static constexpr u8 r8{square::a8 >> 4U};
 
     // file identifiers
-    static constexpr u8 f1 {square::a1 & 7U};
-    static constexpr u8 f2 {square::b1 & 7U};
-    static constexpr u8 f3 {square::c1 & 7U};
-    static constexpr u8 f4 {square::d1 & 7U};
-    static constexpr u8 f5 {square::e1 & 7U};
-    static constexpr u8 f6 {square::f1 & 7U};
-    static constexpr u8 f7 {square::g1 & 7U};
-    static constexpr u8 f8 {square::h1 & 7U};
+    static constexpr u8 f1{square::a1 & 7U};
+    static constexpr u8 f2{square::b1 & 7U};
+    static constexpr u8 f3{square::c1 & 7U};
+    static constexpr u8 f4{square::d1 & 7U};
+    static constexpr u8 f5{square::e1 & 7U};
+    static constexpr u8 f6{square::f1 & 7U};
+    static constexpr u8 f7{square::g1 & 7U};
+    static constexpr u8 f8{square::h1 & 7U};
 
     // methods
     static constexpr auto square(u8 rank, u8 file) { return (rank << 4U) + file; }
@@ -125,8 +123,13 @@ struct coord
     static constexpr auto same_file(u8 sq1, u8 sq2) { return file(sq1) == file(sq2); }
 };
 
+// forward declaration of the fen parser
+struct fen_parser;
+
 class board
 {
+    friend struct fen_parser;
+
     template<bool Sliding = false, piece... Pieces>
     struct attack_checker {
         board const& board;
@@ -174,9 +177,8 @@ class board
 
     board() = default;
 
-    explicit board(std::string_view fen)
-    {
-        import_fen(fen);
+    explicit board(std::string_view fen) {
+        *this = fen_parser::parse(fen);
     }
 
     auto reset() -> void
@@ -198,7 +200,6 @@ class board
         // if a piece of the same color is on square i,
         // then return false (cannot attack our own piece)
         auto c = s == side::white ? color::white : color::black;
-        if (c == colors[i]) { return false; }
         using enum piece;
 
         // pawn attacks
@@ -248,85 +249,7 @@ class board
 
     auto import_fen(std::string_view fen) -> void
     {
-        clear();
-        u8 rank = 0;
-        u8 sq   = 0;
 
-        using namespace me::bitwise_operators;
-
-        auto n = 0;
-        for (auto field : std::ranges::views::split(fen, ' ')) {
-            switch(n++) {
-                case 0: {
-                    // parse position
-                    auto row = static_cast<u32>(square::a8);
-                    for (auto line : std::ranges::views::split(field, '/')) {
-                        auto sq = row;
-                        for (auto c : line) {
-                            if (std::isdigit(c) != 0) {
-                                ASSERT(c-'0' <= 8, "fen digit cannot exceed 8");
-                                auto s = sq;
-                                for (; s < sq + c - '0'; ++s) {
-                                    pieces[s] = piece::none;
-                                    colors[s] = color::none;
-                                }
-                                sq = s;
-                                continue;
-                            }
-                            if (std::isalpha(c) != 0) {
-                                auto col   = std::isupper(c) != 0 ? color::white : color::black;
-                                pieces[sq] = char2piece(static_cast<char>(std::tolower(c)));
-                                colors[sq] = col;
-                                ++sq;
-                            }
-                        }
-                        row -= coord::ncol;
-                    }
-                    break;
-                }
-                case 1: {
-                    // parsing side to move
-                    side_ = field.front() == 'w' ? side::white : side::black;
-                    break;
-                }
-                case 2: {
-                    // parsing castling rights
-                    u8 castle = 0;
-                    for (auto c : field) {
-                        switch(c) {
-                            case 'W':
-                                castle |= me::enum_integer(castle::wk);
-                                break;
-                            case 'Q':
-                                castle |= me::enum_integer(castle::wq);
-                                break;
-                            case 'w':
-                                castle |= me::enum_integer(castle::bk);
-                                break;
-                            case 'q':
-                                castle |= me::enum_integer(castle::wq);
-                                break;
-                            default:
-                                break;
-                        }
-                    }
-                }
-                case 3: {
-                    // parsing en-passant
-                    auto res = me::enum_cast<square>(std::string_view{field.begin(), field.end()});
-                    if (res) {
-                        enpassant_ = res.value();
-                    }
-                    break;
-                }
-                default: {
-                    // ignore the rest for now:
-                    // - halfmove clock
-                    // - fullmove number
-                    break;
-                }
-            }
-        }
     }
 
     auto export_fen() const -> std::string
@@ -355,22 +278,30 @@ class board
 
     auto side() const -> side { return side_; }
     auto side() -> enum side& { return side_; }
+    auto side(enum side si) -> void { side_ = si; }
+
     auto enpassant() const -> square { return enpassant_; }
+    auto enpassant(square sq) -> void { enpassant_ = sq; }
+
+    auto castling() const -> castle { return castle_; }
+    auto castling(castle cs) -> void { castle_ = cs; }
+
     auto white_to_move() const -> bool { return side_ == side::white; }
     auto black_to_move() const -> bool { return side_ == side::black; }
-    auto castling() const -> castle { return castle_; }
 
     std::array<piece, detail_0x88::sz> pieces {detail_0x88::default_pieces()};
     std::array<color, detail_0x88::sz> colors {detail_0x88::default_colors()};
 
-  private:
-    static constexpr auto color_mask = u32 {0x80};
+    private:
+    static constexpr auto color_mask = u32{0x80};
     static constexpr auto piece_mask = ~color_mask;
 
     // board state
     enum side side_{side::white};          // false: white, true: black
     enum square enpassant_ {square::none}; // enpassant column (0..7, -1=uninitialized)
     enum castle castle_{castle::wk | castle::bk | castle::wq | castle::bq}; // castling rights
+    i32 ply_{0}; // half-move counter, see: https://en.wikipedia.org/wiki/Ply_(game_theory)
+    i32 movecount_{0}; // full-move counter
 };  // board
 
 }  // namespace chesslib

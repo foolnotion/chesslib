@@ -5,6 +5,9 @@
 #include <cctype>
 #include <cstdint>
 #include <gch/small_vector.hpp>
+#include <magic_enum.hpp>
+#include <magic_enum_utility.hpp>
+#include <magic_enum_flags.hpp>
 
 namespace chesslib {
 
@@ -75,10 +78,10 @@ enum square : u8 {
 
 // castling rights
 enum class castle : u8 {
-    wk = 1U << 0U, // => 0001
-    wq = 1U << 1U, // => 0010
-    bk = 1U << 2U, // => 0100
-    bq = 1U << 3U  // => 1000
+    wk = 1U << 0U, // => 0001 white can castle king side
+    wq = 1U << 1U, // => 0010 white can castle queen side
+    bk = 1U << 2U, // => 0100 black can castle king side
+    bq = 1U << 3U  // => 1000 black can castle queen side
 };
 
 // side to move
@@ -87,11 +90,28 @@ enum class side : u8 {
     black = 1U << 1U
 };
 
+
 // ascii pieces for printing
 static constexpr std::array piece_symbols = {
     std::array{ "♔", "♕", "♖", "♗", "♘", "♙", " " }, // white
     std::array{ "♚", "♛", "♜", "♝", "♞", "♟︎", " " }  // black
 };
+
+static constexpr std::array piece_letters = {
+    std::array{'K', 'Q', 'R', 'B', 'N', 'P', ' '},
+    std::array{'k', 'q', 'r', 'b', 'n', 'p', ' '}
+};
 }  // namespace chesslib
+
+// specializations for the magic_enum library
+template<>
+struct magic_enum::customize::enum_range<chesslib::castle> {
+    static constexpr bool is_flags = true;
+};
+
+template<>
+struct magic_enum::customize::enum_range<chesslib::side> {
+    static constexpr bool is_flags = true;
+};
 
 #endif

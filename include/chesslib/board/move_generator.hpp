@@ -14,7 +14,7 @@ namespace helpers {
 } // namespace helpers
 
 struct move_generator {
-    board const& board; // NOLINT
+    board& board; // NOLINT
 
     auto moves(move_list& m) const {
         auto const side     = board.white_to_move();
@@ -26,6 +26,8 @@ struct move_generator {
         m.clear();
 
         auto add_move = [&m](u8 source, u8 target, u8 promotion, u8 capture, u8 double_pawn, u8 castling) {
+            ASSERT(coord::valid(source));
+            ASSERT(coord::valid(target));
             m.push_back({
                 .source_square = source,
                 .target_square = target,
@@ -48,7 +50,7 @@ struct move_generator {
         };
 
         auto is_on_start = [&](auto i) {
-            return side ? (i >= square::a2 && i <= square::a2)
+            return side ? (i >= square::a2 && i <= square::h2)
                         : (i >= square::a7 && i <= square::h7);
         };
 
@@ -56,10 +58,10 @@ struct move_generator {
             auto const c = board.colors[i];
             for (auto o : offsets) {
                 for (u8 j = i + o; coord::valid(j) ; j += o) {
-                    if (pieces[j] != piece::none) { break; }
                     auto [q, d] = board[j];
-                    if (c == d) { continue; }
+                    if (c == d && q != piece::none) { break; }
                     add_move(i, j, 0, (q != piece::none && q != piece::king && d != c), 0, 0);
+                    if (pieces[j] != piece::none) { break; }
                 }
             }
         };
@@ -158,6 +160,12 @@ struct move_generator {
                     // 1. the path is clear (no pieces occupy the squares between king and rook)
                     // 2. the king does not move through check
 
+                    // in order to correctly detect attacks from pieces whose "ray" is blocked by the king itself,
+                    // we remove the king from the board before checking for attacks, for example:
+                    // ♜-o-o-o-♔-x
+                    // (here, the square marked "x" would still be in check from the rook)
+                    board.pieces[i] = piece::none;
+
                     using namespace me::bitwise_operators;
                     // check if the king is on the initial square
                     // can I castle on the king side?
@@ -171,17 +179,19 @@ struct move_generator {
                             return pieces[j] == piece::none && !board.is_attacked(j, other_side);
                         })) {
                             auto j = me::enum_integer(path.back());
-                            add_move(i, j, 0, 0, 0, me::enum_integer(kingside));
+                            add_move(i, j, 0, 0, 0, 1);
                         }
                     }
                     if (me::enum_integer(castling & queenside) != 0) {
                         auto path = side ? std::array{square::d1, square::c1}
                                          : std::array{square::d8, square::c8};
-                        if (std::ranges::all_of(path, [&](auto j) {
+
+                        auto rook_can_move = pieces[side ? square::b1 : square::b8] == piece::none;
+                        if (rook_can_move && std::ranges::all_of(path, [&](auto j) {
                             return pieces[j] == piece::none && !board.is_attacked(j, other_side);
                         })) {
                             auto j = me::enum_integer(path.back());
-                            add_move(i, j, 0, 0, 0, me::enum_integer(queenside));
+                            add_move(i, j, 0, 0, 0, 1);
                         }
                     }
                     // regular king moves
@@ -192,6 +202,8 @@ struct move_generator {
                             add_move(i, j, 0, q != piece::none, 0, 0);
                         }
                     }
+
+                    board.pieces[i] = p;
                     break;
                 }
 
