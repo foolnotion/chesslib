@@ -15,6 +15,10 @@
         "version>=": "4.4.0"
       },
       {
+        "name": "nlohmann-json",
+        "version>=": "3.11.3"
+      },
+      {
         "name": "catch2",
         "version>=": "3.7.0"
       }
