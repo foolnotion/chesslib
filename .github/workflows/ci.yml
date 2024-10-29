@@ -9,9 +9,6 @@ on:
     branches:
     - master
 
-env:
-  VCPKG_COMMIT: "ad25766aefb5313b6bc4e2a4b78a2946f84fbf66"
-
 jobs:
   lint:
     runs-on: ubuntu-22.04
@@ -51,10 +48,6 @@ jobs:
       run: sudo apt-get update -q
         && sudo apt-get install lcov -q -y
 
-    - name: Install vcpkg
-      uses: friendlyanon/setup-vcpkg@v1
-      with: { committish: "${{ env.VCPKG_COMMIT }}" }
-
     - name: Configure
       run: cmake --preset=ci-coverage
 
@@ -84,10 +77,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install vcpkg
-      uses: friendlyanon/setup-vcpkg@v1
-      with: { committish: "${{ env.VCPKG_COMMIT }}" }
-
     - name: Configure
       run: cmake --preset=ci-sanitize
 
@@ -114,6 +103,12 @@ jobs:
       matrix:
         os: [macos-14, ubuntu-22.04, windows-2022]
 
+        type: [shared, static]
+
+        include:
+        - { type: shared, shared: YES }
+        - { type: static, shared: NO }
+
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -128,10 +123,6 @@ jobs:
         /usr/bin/clang-tidy clang-tidy
         /usr/bin/clang-tidy-14 140
 
-    - name: Install vcpkg
-      uses: friendlyanon/setup-vcpkg@v1
-      with: { committish: "${{ env.VCPKG_COMMIT }}" }
-
     - name: Setup MultiToolTask
       if: matrix.os == 'windows-2022'
       run: |
@@ -141,6 +132,11 @@ jobs:
     - name: Configure
       shell: pwsh
       run: cmake "--preset=ci-$("${{ matrix.os }}".split("-")[0])"
+        -D BUILD_SHARED_LIBS=${{ matrix.shared }}
+
+    - name: Setup PATH
+      if: matrix.os == 'windows-2022' && matrix.type == 'shared'
+      run: Add-Content "$env:GITHUB_PATH" "$(Get-Location)\build\Release"
 
     - name: Build
       run: cmake --build build --config Release -j 2

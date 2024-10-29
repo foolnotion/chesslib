@@ -9,5 +9,5 @@ prefix/
 CMakeLists.txt.user
 CMakeUserPresets.json
 compile_commands.json
-.cache
-.clang-tidy
+env.bat
+env.ps1

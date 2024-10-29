@@ -1,9 +1,5 @@
 # Building with CMake
 
-## Dependencies
-
-For a list of dependencies, please refer to [vcpkg.json](vcpkg.json).
-
 ## Build
 
 This project doesn't require any special command-line flags to build to keep

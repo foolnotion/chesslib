@@ -41,7 +41,7 @@ the project:
     {
       "name": "dev",
       "binaryDir": "${sourceDir}/build/dev",
-      "inherits": ["dev-mode", "vcpkg", "ci-<os>"],
+      "inherits": ["dev-mode", "ci-<os>"],
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
       }
@@ -86,17 +86,6 @@ in the terminal.
 > Studio you have to set the option `Never run configure step automatically`
 > in `Tools > Options > CMake` **prior to opening the project**, after which
 > you can manually configure using `Project > Configure Cache`.
-
-### Dependency manager
-
-The above preset will make use of the [vcpkg][vcpkg] dependency manager. After
-installing it, make sure the `VCPKG_ROOT` environment variable is pointing at
-the directory where the vcpkg executable is. On Windows, you might also want
-to inherit from the `vcpkg-win64-static` preset, which will make vcpkg install
-the dependencies as static libraries. This is only necessary if you don't want
-to setup `PATH` to run tests.
-
-[vcpkg]: https://github.com/microsoft/vcpkg
 
 ### Configure, build and test
 
@@ -146,15 +135,36 @@ These targets run the clang-format tool on the codebase to check errors and to
 fix them respectively. Customization available using the `FORMAT_PATTERNS` and
 `FORMAT_COMMAND` cache variables.
 
-#### `run-examples`
-
-Runs all the examples created by the `add_example` command.
-
 #### `spell-check` and `spell-fix`
 
 These targets run the codespell tool on the codebase to check errors and to fix
 them respectively. Customization available using the `SPELL_COMMAND` cache
 variable.
+
+## Running tests on Windows with `BUILD_SHARED_LIBS=ON`
+
+If you are building a shared library on Windows, you must add the path to the
+DLL file to `PATH` when you want to run tests. One way you could do that is by
+using PowerShell and writing a script for it, e.g. `env.ps1` at the project
+root:
+
+```powershell
+$oldPrompt = (Get-Command prompt).ScriptBlock
+
+function prompt() { "(Debug) $(& $oldPrompt)" }
+
+$VsInstallPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -Property InstallationPath
+$Env:Path += ";$VsInstallPath\Common7\IDE;$Pwd\build\dev\Debug"
+```
+
+Then you can source this script by running `. env.ps1`. This particular
+example will only work for Debug builds.
+
+### Passing `PATH` to editors
+
+Make sure you launch your editor of choice from the console with the above
+script sourced. Look for `(Debug)` in the prompt to confirm, then run e.g.
+`code .` for VScode or `devenv .` for Visual Studio.
 
 [1]: https://cmake.org/cmake/help/latest/manual/cmake-presets.7.html
 [2]: https://cmake.org/download/
