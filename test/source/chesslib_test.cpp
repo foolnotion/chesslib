@@ -80,13 +80,12 @@ auto format_moves(board const& board, move_list const& moves) {
         } else {
             str.push_back(piece_letters[0][me::enum_integer(p)]);
             auto const& moves_to_tgt = map.find({static_cast<u8>(p), tgt})->second;
-            // ASSERT(moves_to_tgt.size() == 1 || moves_to_tgt.size() == 2);
             if (moves_to_tgt.size() == 2) {
                 auto a = moves_to_tgt.front();
                 auto b = moves_to_tgt.back();
                 str.push_back(coord::file(a.source_square) == coord::file(b.source_square)
                     ? ranks[coord::rank(m.source_square)]
-                    : files[coord::rank(m.source_square)]);
+                    : files[coord::file(m.source_square)]);
             }
             if (m.capture) {
                 str.push_back('x');
