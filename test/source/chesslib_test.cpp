@@ -1,6 +1,11 @@
-#include <chesslib/chesslib.hpp>
-#include <catch2/catch_test_macros.hpp>
+#include <fstream>
+#include <iostream>
 #include <ankerl/unordered_dense.h>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators_all.hpp>
+#include <chesslib/chesslib.hpp>
+#include <nlohmann/json.hpp>
+#include <fmt/ranges.h>
 
 namespace chesslib::test {
 namespace helpers {
@@ -25,16 +30,75 @@ auto print(board const& b, auto&& pred, char const* marker, fmt::color color) {
         }
         fmt::print("\n");
     }
-    };
-} // namespace helpers
-
-TEST_CASE("print board", "[library]")
-{
-    chesslib::board board;
-    board.import_fen("rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR");
-    board.print();
-    board::print_binary();
 }
+
+auto format_moves(board const& board, move_list const& moves) {
+    // group by target square since this changes the notation => Nec3, Nbc3
+    ankerl::unordered_dense::map<std::pair<u8, u8>, std::vector<move>> map;
+
+    std::vector<std::string> out;
+    out.reserve(moves.size());
+
+    for (auto const& m : moves) {
+        auto [p, c] = board[m.source_square];
+        auto [it, ok] = map.insert({ {static_cast<u8>(p), m.target_square}, {} });
+        it->second.push_back(m);
+    }
+
+    std::string files = "abcdefgh";
+    std::string ranks = "12345678";
+    std::string promotions = "NBRQ";
+
+    for (auto const& m : moves) {
+        auto src = m.source_square;
+        auto tgt = m.target_square;
+
+        auto [p, c] = board[src];
+
+        std::string str;
+
+        if (p == piece::pawn) {
+            if (m.capture) {
+                str.push_back(files[coord::file(src)]);
+                str.push_back('x');
+            }
+            str += me::enum_name(static_cast<square>(tgt));
+            if (m.promotion != 0) {
+                str.push_back('=');
+                str.push_back(piece_letters[0][m.promotion]);
+            }
+            out.push_back(str);
+        } else if (m.castling) {
+            if (tgt == square::g1 || tgt == square::g8) {
+                str += "O-O";
+            } else if (tgt == square::c1 || tgt == square::c8) {
+                str += "O-O-O";
+            } else {
+                throw std::runtime_error("castling flag set but target is inconsistent");
+            }
+            out.push_back(str);
+        } else {
+            str.push_back(piece_letters[0][me::enum_integer(p)]);
+            auto const& moves_to_tgt = map.find({static_cast<u8>(p), tgt})->second;
+            // ASSERT(moves_to_tgt.size() == 1 || moves_to_tgt.size() == 2);
+            if (moves_to_tgt.size() == 2) {
+                auto a = moves_to_tgt.front();
+                auto b = moves_to_tgt.back();
+                str.push_back(coord::file(a.source_square) == coord::file(b.source_square)
+                    ? ranks[coord::rank(m.source_square)]
+                    : files[coord::rank(m.source_square)]);
+            }
+            if (m.capture) {
+                str.push_back('x');
+            }
+            str += me::enum_name(static_cast<square>(tgt));
+            out.push_back(str);
+        }
+    }
+
+    return out;
+}
+} // namespace helpers
 
 TEST_CASE("piece values", "[library]")
 {
@@ -46,266 +110,89 @@ TEST_CASE("piece values", "[library]")
     });
 }
 
-TEST_CASE("pawn moves", "[library]")
+TEST_CASE("move generator", "[library]")
 {
-    SECTION("rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR") {
-        chesslib::board board{"rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR"};
-        chesslib::move_generator gen{board};
-        chesslib::move_list moves;
+    auto check_test_cases = [](auto const& cases, auto piece)
+    {
+        for (auto fen : cases) {
+            chesslib::board board{fen};
+            chesslib::move_generator gen{board};
+            chesslib::move_list moves;
 
-        gen.moves(moves);
-        ankerl::unordered_dense::map<u8, u8> squares;
-        for (auto const& m : moves) {
-            auto p = board.pieces[m.source_square];
-            if (p != piece::pawn) { continue; }
-            squares.insert({static_cast<u8>(m.target_square), static_cast<u8>(m.source_square)});
+            gen.moves(moves);
+            ankerl::unordered_dense::map<u8, u8> squares;
+            for (auto const& m : moves) {
+                auto p = board.pieces[m.source_square];
+                if (p != piece) { continue; }
+                squares.insert({static_cast<u8>(m.target_square), static_cast<u8>(m.source_square)});
+            }
+
+            auto pred = [&](auto& b, auto s) {
+                return squares.contains(s);
+            };
+
+            helpers::print(board, pred, "▢", fmt::color::blue);
+            fmt::print("\n");
         }
+    };
 
-        auto pred = [&](auto& b, auto s) {
-            return squares.contains(s);
+    SECTION("pawn moves")
+    {
+        constexpr std::array cases = {
+            "8/8/8/8/3pP3/8/8/8 b e3"
         };
 
-        helpers::print(board, pred, "▢", fmt::color::blue);
-        fmt::print("\n");
-    }
-}
-
-TEST_CASE("knight moves", "[library]")
-{
-    SECTION("rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR") {
-        chesslib::board board{"rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR"};
-        chesslib::move_generator gen{board};
-        chesslib::move_list moves;
-
-        gen.moves(moves);
-        ankerl::unordered_dense::map<u8, u8> squares;
-        for (auto const& m : moves) {
-            auto p = board.pieces[m.source_square];
-            if (p != piece::knight) { continue; }
-            squares.insert({static_cast<u8>(m.target_square), static_cast<u8>(m.source_square)});
-        }
-
-        auto pred = [&](auto& b, auto s) {
-            return squares.contains(s);
-        };
-
-        helpers::print(board, pred, "▢", fmt::color::blue);
-        fmt::print("\n");
-    }
-}
-
-TEST_CASE("bishop moves", "[library]")
-{
-    SECTION("rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR") {
-        chesslib::board board{"rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR"};
-        chesslib::move_generator gen{board};
-        chesslib::move_list moves;
-
-        gen.moves(moves);
-        ankerl::unordered_dense::map<u8, u8> squares;
-        for (auto const& m : moves) {
-            auto p = board.pieces[m.source_square];
-            if (p != piece::bishop) { continue; }
-            squares.insert({static_cast<u8>(m.target_square), static_cast<u8>(m.source_square)});
-        }
-
-        auto pred = [&](auto& b, auto s) {
-            return squares.contains(s);
-        };
-
-        helpers::print(board, pred, "▢", fmt::color::blue);
-        fmt::print("\n");
+        check_test_cases(cases, piece::pawn);
     }
 
-    SECTION("8/8/8/3B4/8/8/8/8") {
-        chesslib::board board{"8/8/8/3B4/8/8/8/8"};
-        chesslib::move_generator gen{board};
-        chesslib::move_list moves;
-
-        gen.moves(moves);
-        ankerl::unordered_dense::map<u8, u8> squares;
-        for (auto const& m : moves) {
-            auto p = board.pieces[m.source_square];
-            if (p != piece::bishop) { continue; }
-            squares.insert({static_cast<u8>(m.target_square), static_cast<u8>(m.source_square)});
-        }
-
-        auto pred = [&](auto& b, auto s) {
-            return squares.contains(s);
+    SECTION("knight moves")
+    {
+        constexpr std::array cases = {
+            "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR"
         };
-
-        helpers::print(board, pred, "▢", fmt::color::blue);
-        fmt::print("\n");
+        check_test_cases(cases, piece::knight);
     }
 
-    SECTION("P5P1/8/8/3B4/8/5P2/P7/8") {
-        chesslib::board board{"P5P1/8/8/3B4/8/5P2/P7/8"};
-        chesslib::move_generator gen{board};
-        chesslib::move_list moves;
-
-        gen.moves(moves);
-        ankerl::unordered_dense::map<u8, u8> squares;
-        for (auto const& m : moves) {
-            auto p = board.pieces[m.source_square];
-            if (p != piece::bishop) { continue; }
-            squares.insert({static_cast<u8>(m.target_square), static_cast<u8>(m.source_square)});
-        }
-
-        auto pred = [&](auto& b, auto s) {
-            return squares.contains(s);
+    SECTION("bishop moves")
+    {
+        constexpr std::array cases = {
+            "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR",
+            "8/8/8/3B4/8/8/8/8",
+            "P5P1/8/8/3B4/8/5P2/P7/8",
         };
-
-        helpers::print(board, pred, "▢", fmt::color::blue);
-        fmt::print("\n");
-    }
-}
-
-TEST_CASE("rook moves", "[library]")
-{
-    SECTION("8/8/8/3R4/8/8/8/8") {
-        chesslib::board board{"8/8/8/3R4/8/8/8/8"};
-        chesslib::move_generator gen{board};
-        chesslib::move_list moves;
-
-        gen.moves(moves);
-        ankerl::unordered_dense::map<u8, u8> squares;
-        for (auto const& m : moves) {
-            auto p = board.pieces[m.source_square];
-            if (p != piece::rook) { continue; }
-            squares.insert({static_cast<u8>(m.target_square), static_cast<u8>(m.source_square)});
-        }
-
-        auto pred = [&](auto& b, auto s) {
-            return squares.contains(s);
-        };
-
-        helpers::print(board, pred, "▢", fmt::color::blue);
-        fmt::print("\n");
-    }
-}
-
-TEST_CASE("queen moves", "[library]")
-{
-    SECTION("rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR") {
-        chesslib::board board{"rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR"};
-        chesslib::move_generator gen{board};
-        chesslib::move_list moves;
-
-        gen.moves(moves);
-        ankerl::unordered_dense::map<u8, u8> squares;
-        for (auto const& m : moves) {
-            auto p = board.pieces[m.source_square];
-            if (p != piece::queen) { continue; }
-            squares.insert({static_cast<u8>(m.target_square), static_cast<u8>(m.source_square)});
-        }
-
-        auto pred = [&](auto& b, auto s) {
-            return squares.contains(s);
-        };
-
-        helpers::print(board, pred, "▢", fmt::color::blue);
-        fmt::print("\n");
+        check_test_cases(cases, piece::bishop);
     }
 
-    SECTION("8/8/8/3Q4/8/8/8/8") {
-        chesslib::board board{"8/8/8/3Q4/8/8/8/8"};
-        chesslib::move_generator gen{board};
-        chesslib::move_list moves;
-
-        gen.moves(moves);
-        ankerl::unordered_dense::map<u8, u8> squares;
-        for (auto const& m : moves) {
-            auto p = board.pieces[m.source_square];
-            if (p != piece::queen) { continue; }
-            squares.insert({static_cast<u8>(m.target_square), static_cast<u8>(m.source_square)});
-        }
-
-        auto pred = [&](auto& b, auto s) {
-            return squares.contains(s);
+    SECTION("rook moves")
+    {
+        constexpr std::array cases = {
+            "8/8/8/3R4/8/8/8/8",
+            "8/4k3/8/8/8/8/r6r/R3K2R w KQ - 0 1"
         };
-
-        helpers::print(board, pred, "▢", fmt::color::blue);
-        fmt::print("\n");
+        check_test_cases(cases, piece::rook);
     }
 
-    SECTION("3P4/1P3P2/8/P2Q2P1/8/1P3P2/3P4/8") {
-        chesslib::board board{"3P4/1p3P2/8/P2Q2p1/8/1p3P2/3p4/8"};
-        chesslib::move_generator gen{board};
-        chesslib::move_list moves;
-
-        gen.moves(moves);
-        ankerl::unordered_dense::map<u8, u8> squares;
-        for (auto const& m : moves) {
-            auto p = board.pieces[m.source_square];
-            if (p != piece::queen) { continue; }
-            squares.insert({static_cast<u8>(m.target_square), static_cast<u8>(m.source_square)});
-        }
-
-        auto pred = [&](auto& b, auto s) {
-            return squares.contains(s);
+    SECTION("queen moves")
+    {
+        constexpr std::array cases = {
+            "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR",
+            "8/8/8/3Q4/8/8/8/8",
+            "3P4/1p3P2/8/P2Q2p1/8/1p3P2/3p4/8"
         };
-
-        helpers::print(board, pred, "▢", fmt::color::blue);
-        fmt::print("\n");
-    }
-}
-
-TEST_CASE("king moves", "[library]")
-{
-    SECTION("8/8/8/8/8/8/8/4K2R") {
-        chesslib::board board{"8/8/8/8/8/8/8/4K2R"};
-        chesslib::move_generator gen{board};
-        chesslib::move_list moves;
-
-        gen.moves(moves);
-        ankerl::unordered_dense::map<u8, u8> squares;
-        for (auto const& m : moves) {
-            auto p = board.pieces[m.source_square];
-            if (p != piece::king) { continue; }
-            squares.insert({static_cast<u8>(m.target_square), static_cast<u8>(m.source_square)});
-        }
-
-        auto pred = [&](auto& b, auto s) {
-            return squares.contains(s);
-        };
-
-        helpers::print(board, pred, "▢", fmt::color::blue);
-        fmt::print("\n");
+        check_test_cases(cases, piece::queen);
     }
 
-    SECTION("8/8/8/3K4/8/4K3/8/8") {
-        chesslib::move_list moves;
-
-        chesslib::board board{"8/8/8/3K4/8/4k3/8/8"};
-        board.side() = side::white;
-        chesslib::move_generator gen{board};
-        fmt::print("side to move: {}\n", me::enum_name(board.side()));
-        gen.moves(moves);
-
-        ankerl::unordered_dense::map<u8, u8> squares;
-        auto pred = [&](auto& b, auto s) {
-            return squares.contains(s);
+    SECTION("king moves")
+    {
+        constexpr std::array cases = {
+            "8/8/8/8/8/8/8/4K2R",
+            "8/8/8/3K4/8/4k3/8/8 w",
+            "8/8/8/3K4/8/4k3/8/8 b",
+            "8/8/3r4/8/8/3K4/8 w",
+            "8/5k2/3r4/8/8/3K4/8 b - -",
+            "8/4k3/8/8/8/8/r6r/R3K2R w KQ - 0 1"
         };
-
-        for (auto const& m : moves) {
-            auto p = board.pieces[m.source_square];
-            if (p != piece::king) { continue; }
-            squares.insert({static_cast<u8>(m.target_square), static_cast<u8>(m.source_square)});
-        }
-        helpers::print(board, pred, "▢", fmt::color::blue);
-        fmt::print("\n");
-
-        board.side() = side::black;
-        fmt::print("side to move: {}\n", me::enum_name(board.side()));
-        gen.moves(moves);
-        squares.clear();
-        for (auto const& m : moves) {
-            auto p = board.pieces[m.source_square];
-            if (p != piece::king) { continue; }
-            squares.insert({static_cast<u8>(m.target_square), static_cast<u8>(m.source_square)});
-        }
-        helpers::print(board, pred, "▢", fmt::color::blue);
-        fmt::print("\n");
+        check_test_cases(cases, piece::king);
     }
 }
 
@@ -322,7 +209,9 @@ TEST_CASE("attacked squares", "[library]")
         "5rr1/8/8/8/8/5p2/q3PP2/R3K2R w",
         "8/8/2r3n1/8/4B3/5N2/2R3P1/8 w",
         "8/8/2r3n1/8/4B3/5n2/2q3p1/8 w",
-        "8/8/2r3n1/8/4B3/5n2/2q3p1/8 b"
+        "8/8/2r3n1/8/4B3/5n2/2q3p1/8 b",
+        "5R2/k5r1/P2p4/1K1Np3/1P2P1p1/8/8/1r6 w",
+        "5R2/k5r1/P2p4/1K1Np3/1P2P1p1/8/8/1r6 b",
     };
 
     for (auto const* fen : test_cases) {
@@ -330,6 +219,80 @@ TEST_CASE("attacked squares", "[library]")
         chesslib::board board{fen};
         helpers::print(board, attacked, "▢", board.side() == side::white ? fmt::color::red : fmt::color::blue);
         fmt::print("\n");
+    }
+}
+
+TEST_CASE("parse en-passant", "[library]")
+{
+    constexpr auto* fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1";
+    chesslib::board board{fen};
+    board.print();
+}
+
+TEST_CASE("rampart", "[library]")
+{
+    using json = nlohmann::json;
+
+    auto check_case = [&](auto t) {
+        auto const& s = t["start"];
+        auto const fen = s["fen"].template get<std::string>();
+        auto const desc = s["description"].template get<std::string>();
+        fmt::print("fen: {}\n", fen);
+        fmt::print("description: {}\n", desc);
+
+        auto const& e = t["expected"];
+        std::vector<std::string> expected_moves;
+
+        for (auto const& x : e) {
+            auto m = x["move"].template get<std::string>();
+            if (m.back() == '+') {
+                m.pop_back();
+            }
+            expected_moves.push_back(m);
+        }
+        std::ranges::sort(expected_moves);
+        fmt::print("expected moves: {}\n", expected_moves);
+
+        board b{fen};
+        move_list moves;
+        move_generator gen{b};
+        gen.moves(moves);
+        auto computed_moves = helpers::format_moves(b, moves);
+        std::ranges::sort(computed_moves);
+        auto color = expected_moves == computed_moves ? fmt::color::green : fmt::color::red;
+        fmt::print(fmt::fg(color), "computed moves: {}\n\n", computed_moves);
+        REQUIRE(expected_moves == computed_moves);
+    };
+
+    // test cases involving castling
+    SECTION("castling") {
+        std::ifstream f("./test/testcases/castling.json");
+        json data = json::parse(f);
+        std::ranges::for_each(data["testCases"], check_case);
+    }
+
+    SECTION("pawns") {
+        std::ifstream f("./test/testcases/pawns.json");
+        json data = json::parse(f);
+        std::ranges::for_each(data["testCases"], check_case);
+    }
+
+    SECTION("promotions") {
+        std::ifstream f("./test/testcases/promotions.json");
+        json data = json::parse(f);
+        std::ranges::for_each(data["testCases"], check_case);
+    }
+
+    SECTION("standard") {
+        std::ifstream f("./test/testcases/standard.json");
+        json data = json::parse(f);
+        std::ranges::for_each(data["testCases"], check_case);
+    }
+
+    SECTION("taxing") {
+        std::ifstream f("./test/testcases/taxing.json");
+        json data = json::parse(f);
+        std::ranges::for_each(data["testCases"], check_case);
     }
 }
 } // namespace chesslib::test

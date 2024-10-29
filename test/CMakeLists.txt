@@ -12,18 +12,21 @@ if(PROJECT_IS_TOP_LEVEL)
   enable_testing()
 endif()
 
-find_package(Catch2 REQUIRED)
+find_package(Catch2 CONFIG REQUIRED)
 include(Catch)
 
-# ---- Tests ----s
+# ---- Tests ----
 
-add_executable(chesslib_test source/chesslib_test.cpp)
-target_link_libraries(
-    chesslib_test PRIVATE
+add_executable(chesslib_test
+    source/chesslib_test.cpp
+    source/fen.cpp
+)
+
+target_link_libraries(chesslib_test
+    PRIVATE
     chesslib::chesslib
     Catch2::Catch2WithMain
 )
-# target
 target_compile_features(chesslib_test PRIVATE cxx_std_20)
 
 catch_discover_tests(chesslib_test)
