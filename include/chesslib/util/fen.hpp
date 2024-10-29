@@ -13,7 +13,7 @@ namespace chesslib {
         fullmove_number        // the number of full moves, it starts at 1 and is incremented after black's move
     };
 
-    struct board;
+    class board;
 
     struct fen_parser {
         static auto parse(std::string_view fen) -> board;
