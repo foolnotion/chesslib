@@ -48,6 +48,7 @@
               libassert
               libdwarf
               magic-enum
+              nlohmann_json
               unordered_dense
               zstd
             ];
