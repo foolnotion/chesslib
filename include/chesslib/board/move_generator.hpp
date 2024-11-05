@@ -18,7 +18,6 @@ struct move_generator {
         auto const side     = b.white_to_move();
         auto const castling = b.castling();
         auto const& pieces  = b.pieces;
-        auto const& colors  = b.colors;
 
         auto const in_check = b.is_king_in_check();
 
@@ -40,7 +39,7 @@ struct move_generator {
             });
         };
 
-        auto add_promotions = [&m,&add_move](u8 src, u8 tgt, u8 cap, u8 dbl, u8 enp, u8 cst) {
+        auto add_promotions = [&add_move](u8 src, u8 tgt, u8 cap, u8 dbl, u8 enp, u8 cst) {
             for (auto x : {piece::knight, piece::bishop, piece::rook, piece::queen}) {
                 add_move(src, tgt, static_cast<u8>(x), cap, dbl, enp, cst);
             }
