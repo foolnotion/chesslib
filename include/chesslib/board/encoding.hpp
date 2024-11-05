@@ -261,8 +261,11 @@ class board
         swap(src, tgt);
 
         if (m.capture) {
-            pieces[src] = piece::none;
-            colors[src] = color::none;
+            auto const sq = m.enpassant
+                                ? src + (coord::file(src) < coord::file(tgt) ? +1 : -1)
+                                : src;
+            pieces[sq] = piece::none;
+            colors[sq] = color::none;
         }
 
         if (m.promotion) {
@@ -308,7 +311,6 @@ class board
             }
         }
 
-        // set the castle flags if rook or king move
         switch (p) {
             case piece::pawn: {
                 // check if enpassant is possible and set the flag
@@ -327,6 +329,7 @@ class board
                 }
                 break;
             }
+            // set the castle flags if rook or king move
             case piece::rook: {
                 switch(src) {
                     case square::h1: castling &= ~(castling_rights::wk); break;
