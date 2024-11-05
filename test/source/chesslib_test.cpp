@@ -82,11 +82,13 @@ auto format_moves(board const& board, move_list const& moves) -> std::vector<std
             str.push_back(piece_letters[0][me::enum_integer(p)]);
             auto const& moves_to_tgt = map.find({static_cast<u8>(p), tgt})->second;
             if (moves_to_tgt.size() > 1) {
-                auto a = moves_to_tgt.front();
-                auto b = moves_to_tgt.back();
-                str.push_back(coord::file(a.source_square) == coord::file(b.source_square)
-                    ? ranks[coord::rank(m.source_square)]
-                    : files[coord::file(m.source_square)]);
+                if (std::ranges::count_if(moves_to_tgt, [&](auto const& m) {
+                    return coord::file(m.source_square) == coord::file(src);
+                }) > 1) {
+                    str.push_back(ranks[coord::rank(m.source_square)]);
+                } else {
+                    str.push_back(files[coord::file(m.source_square)]);
+                }
             }
             if (m.capture) {
                 str.push_back('x');
@@ -275,10 +277,7 @@ TEST_CASE("parse en-passant", "[library]")
 TEST_CASE("king in check", "[library]")
 {
     constexpr std::array test_cases = {
-        "8/4k3/8/8/8/8/r6r/4K3 w - - 0 1",
-        "8/4k3/8/8/8/8/r6r/4K3 b - - 0 1"
-        // "8/8/4k3/8/4p3/3p4/B7/7K b - - 0 1",
-        // "8/4k3/8/8/8/8/r6r/R3K2R w Q - 0 1"
+        "4k3/8/5P2/p1K4r/Pp5p/6pP/6P1/8 w - - 0 1"
     };
 
     for (auto const* fen : test_cases) {
@@ -286,7 +285,7 @@ TEST_CASE("king in check", "[library]")
         board b{fen};
         b.print();
         fmt::print("king positions - white: {}, black: {}\n", me::enum_name(b.state().white_king), me::enum_name(b.state().black_king));
-        fmt::print("in check: {}\n", b.is_king_in_check());
+        REQUIRE(b.is_king_in_check());
     }
 }
 
@@ -319,14 +318,20 @@ TEST_CASE("rampart", "[library]")
 
         std::erase_if(moves, [&](auto const& m) {
             auto tmp = b;
+            auto src = m.source_square;
+            auto tgt = m.target_square;
 
-            auto [p, c] = b[m.target_square];
+            auto sq  = m.enpassant
+                        ? src + (coord::file(src) < coord::file(tgt) ? +1 : -1)
+                        : tgt;
+
+            auto [p, c] = b[sq];
             board_state const s = b.make_move(m);
             auto ret = b.is_king_in_check();
             b.unmake_move(m, s);
             if (m.capture) {
-                b.pieces[m.target_square] = p;
-                b.colors[m.target_square] = c;
+                b.pieces[sq] = p;
+                b.colors[sq] = c;
             }
 
             ASSERT(b.state() == tmp.state());
@@ -348,8 +353,8 @@ TEST_CASE("rampart", "[library]")
             fmt::print("expected moves: {} {}\n", expected_moves, expected_moves.size());
             fmt::print(fmt::fg(color), "computed moves: {} {}\n\n", computed_moves, computed_moves.size());
             fmt::print("\n");
-            REQUIRE(expected_moves == computed_moves);
         }
+        REQUIRE(expected_moves == computed_moves);
     };
 
     // test cases involving castling
