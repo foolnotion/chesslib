@@ -413,7 +413,49 @@ class board
 
     auto export_fen() const -> std::string
     {
-        return {};
+        std::string fen;
+        // fill in the piece positions field
+        for (i32 i = me::enum_integer(square::a8); i >= 0; i -= coord::ncol) {
+            for (auto sq = i; coord::valid(sq); ) {
+                // deal with empty squares
+                auto k = sq;
+                while(coord::valid(sq) && pieces[sq] == piece::none) { ++sq; }
+                if (sq > k) {
+                    ASSERT(sq-k <= 8);
+                    fen.push_back(sq-k+'0');
+                }
+
+                while(coord::valid(sq) && pieces[sq] != piece::none) {
+                    auto [p, c] = (*this)[sq++];
+                    fen.push_back(piece_letters[c == color::white ? 0 : 1][me::enum_integer(p)]);
+                }
+            }
+            if (i >= coord::ncol) {
+                fen.push_back('/');
+            }
+        }
+
+        // fill in the side to move
+        fen.push_back(' ');
+        fen.push_back(white_to_move() ? 'w' : 'b');
+
+        // fill in castling availability
+        fen.push_back(' ');
+        auto castling = state().castling;
+        if ((castling & castling_rights::wk) == castling_rights::wk) { fen.push_back('K'); }
+        if ((castling & castling_rights::wq) == castling_rights::wq) { fen.push_back('Q'); }
+        if ((castling & castling_rights::bk) == castling_rights::bk) { fen.push_back('k'); }
+        if ((castling & castling_rights::bq) == castling_rights::bq) { fen.push_back('q'); }
+        if (me::enum_integer(castling) == 0) { fen.push_back('-'); }
+
+        // fill in enpassant square
+        fen.push_back(' ');
+        fen += state().enpassant == square::none ? "-" : me::enum_name(state().enpassant);
+
+        // fill in the ply and move count
+        fen.push_back(' ');
+        fen += fmt::format("{} {}", state().ply, state().count);
+        return fen;
     }
 
     auto print() const -> void
