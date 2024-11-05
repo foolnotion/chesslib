@@ -27,7 +27,7 @@ using u64 = std::uint64_t;
 struct move {
     u8 source_square : 7;
     u8 target_square : 7;
-    u8 promotion     : 4;
+    u8 promotion     : 3;
     u8 capture       : 1;
     u8 double_pawn   : 1;
     u8 enpassant     : 1;
@@ -36,7 +36,8 @@ struct move {
 
 // a stack-allocated vector to hold the move list
 static constexpr auto move_list_capacity{256};
-using move_list = gch::small_vector<move, move_list_capacity>;
+// using move_list = gch::small_vector<move, move_list_capacity>;
+using move_list = std::vector<move>;
 
 // pieces
 enum class piece : u8 {
@@ -77,7 +78,7 @@ enum square : u8 {
 };
 
 // castling rights
-enum class castle : u8 {
+enum class castling_rights : u8 {
     wk = 1U << 0U, // => 0001 white can castle king side
     wq = 1U << 1U, // => 0010 white can castle queen side
     bk = 1U << 2U, // => 0100 black can castle king side
@@ -85,7 +86,7 @@ enum class castle : u8 {
 };
 
 // side to move
-enum class side : u8 {
+enum class side_to_move : u8 {
     white = 1U << 0U,
     black = 1U << 1U
 };
@@ -105,12 +106,12 @@ static constexpr std::array piece_letters = {
 
 // specializations for the magic_enum library
 template<>
-struct magic_enum::customize::enum_range<chesslib::castle> {
+struct magic_enum::customize::enum_range<chesslib::castling_rights> {
     static constexpr bool is_flags = true;
 };
 
 template<>
-struct magic_enum::customize::enum_range<chesslib::side> {
+struct magic_enum::customize::enum_range<chesslib::side_to_move> {
     static constexpr bool is_flags = true;
 };
 
