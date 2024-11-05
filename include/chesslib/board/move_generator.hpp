@@ -25,7 +25,7 @@ struct move_generator {
         // clear the move list
         m.clear();
 
-        auto add_move = [&](u8 source, u8 target, u8 promotion, u8 capture, u8 double_pawn, u8 castling) {
+        auto add_move = [&](u8 source, u8 target, u8 promotion, u8 capture, u8 double_pawn, u8 enpassant, u8 castling) {
             ASSERT(coord::valid(source));
             ASSERT(coord::valid(target));
             // fmt::print("{}{}-{}\n", piece_letters[0][static_cast<u8>(b.pieces[source])], me::enum_name(static_cast<square>(source)), me::enum_name(static_cast<square>(target)));
@@ -35,13 +35,14 @@ struct move_generator {
                 .promotion     = promotion,
                 .capture       = capture,
                 .double_pawn   = double_pawn,
+                .enpassant     = enpassant,
                 .castling      = castling
             });
         };
 
-        auto add_promotions = [&m,&add_move](u8 src, u8 tgt, u8 cap, u8 dbl, u8 cst) {
+        auto add_promotions = [&m,&add_move](u8 src, u8 tgt, u8 cap, u8 dbl, u8 enp, u8 cst) {
             for (auto x : {piece::knight, piece::bishop, piece::rook, piece::queen}) {
-                add_move(src, tgt, static_cast<u8>(x), cap, dbl, cst);
+                add_move(src, tgt, static_cast<u8>(x), cap, dbl, enp, cst);
             }
         };
 
@@ -61,7 +62,7 @@ struct move_generator {
                 for (u8 j = i + o; coord::valid(j) ; j += o) {
                     auto [q, d] = b[j];
                     if (c == d && q != piece::none) { break; }
-                    add_move(i, j, 0, (q != piece::none && q != piece::king && d != c), 0, 0);
+                    add_move(i, j, 0, (q != piece::none && q != piece::king && d != c), 0, 0, 0);
                     if (pieces[j] != piece::none) { break; }
                 }
             }
@@ -87,18 +88,20 @@ struct move_generator {
                     // pawn pushes
                     {
                         u8 j = i + push_once;
-                        auto [q, d] = b[j];
-                        if (q == piece::none) {
-                            if (ready_to_promote(i)) { add_promotions(i, j, 0, 0, 0); }
-                            else                     { add_move(i, j, 0, 0, 0, 0); }
-                        }
+                        if (coord::valid(j)) {
+                            auto [q, d] = b[j];
+                            if (q == piece::none) {
+                                if (ready_to_promote(i)) { add_promotions(i, j, 0, 0, 0, 0); }
+                                else                     { add_move(i, j, 0, 0, 0, 0, 0); }
+                            }
 
-                        // check if I can push twice
-                        if (is_on_start(i)) {
-                            u8 k = i + push_twice;
-                            auto [r, e] = b[k];
-                            if (q == piece::none && r == piece::none) {
-                                add_move(i, k, 0, 0, 1, 0);
+                            // check if I can push twice
+                            if (is_on_start(i)) {
+                                u8 k = i + push_twice;
+                                auto [r, e] = b[k];
+                                if (q == piece::none && r == piece::none) {
+                                    add_move(i, k, 0, 0, 1, 0, 0);
+                                }
                             }
                         }
                     }
@@ -110,9 +113,10 @@ struct move_generator {
                             auto [q, d] = b[j];
                             // can I capture a piece of the opposite color?
                             // or, can I capture en-passant?
-                            if ((q != piece::none && c != d) || (q == piece::none && b.enpassant() == j)) {
-                                if (ready_to_promote(i)) { add_promotions(i, j, 1, 0, 0); }
-                                else                     { add_move(i, j, 0, 1, 0, 0); }
+                            auto const enpassant = b.enpassant() == j;
+                            if ((q != piece::none && c != d) || (q == piece::none && enpassant)) {
+                                if (ready_to_promote(i)) { add_promotions(i, j, 1, 0, 0, 0); }
+                                else                     { add_move(i, j, 0, 1, 0, enpassant, 0); }
                             }
                         }
                     }
@@ -130,7 +134,7 @@ struct move_generator {
                         if (c == d) { continue; } // cannot capture own piece
 
                         // the move is legal, we add it to the list
-                        add_move(i , j, 0, (q != piece::none && d != c) ? u8{1} : u8{0}, 0, 0);
+                        add_move(i , j, 0, (q != piece::none && d != c) ? u8{1} : u8{0}, 0, 0, 0);
                     }
                     break;
                 }
@@ -182,7 +186,7 @@ struct move_generator {
                                 return pieces[j] == piece::none && !b.is_attacked(j, other_side);
                             })) {
                                 auto j = me::enum_integer(path.back());
-                                add_move(i, j, 0, 0, 0, 1);
+                                add_move(i, j, 0, 0, 0, 0, 1);
                             }
                         }
                         if (me::enum_integer(castling & queenside) != 0) {
@@ -194,7 +198,7 @@ struct move_generator {
                                 return pieces[j] == piece::none && !b.is_attacked(j, other_side);
                             })) {
                                 auto j = me::enum_integer(path.back());
-                                add_move(i, j, 0, 0, 0, 1);
+                                add_move(i, j, 0, 0, 0, 0, 1);
                             }
                         }
                     }
@@ -202,9 +206,10 @@ struct move_generator {
                     // regular king moves
                     for (auto o : board::king_offsets) {
                         u8 j = i + o;
+                        if (!coord::valid(j)) { continue; }
                         auto [q, d] = b[j];
-                        if (coord::valid(j) && (q == piece::none || d != c) && !b.is_attacked(j, other_side)) {
-                            add_move(i, j, 0, q != piece::none, 0, 0);
+                        if ((q == piece::none || d != c) && !b.is_attacked(j, other_side)) {
+                            add_move(i, j, 0, q != piece::none, 0, 0, 0);
                         }
                     }
 
