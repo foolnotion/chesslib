@@ -343,7 +343,7 @@ class board
             case piece::king: {
                 switch(src) {
                     case square::e1: castling &= ~(castling_rights::wk | castling_rights::wq); break;
-                    case square::a8: castling &= ~(castling_rights::bk | castling_rights::bq); break;
+                    case square::e8: castling &= ~(castling_rights::bk | castling_rights::bq); break;
                     default: break;
                 }
                 // update king position
