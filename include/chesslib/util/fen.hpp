@@ -4,6 +4,9 @@
 #include <string_view>
 
 namespace chesslib {
+    class board;
+
+namespace fen {
     enum fen_record {
         piece_placement = 0,   // piece placement data
         active_color,          // the side to move ("w" = white, "b" = black)
@@ -13,11 +16,9 @@ namespace chesslib {
         fullmove_number        // the number of full moves, it starts at 1 and is incremented after black's move
     };
 
-    class board;
-
-    struct fen_parser {
-        static auto parse(std::string_view fen) -> board;
-    };
+    auto read(std::string_view fen) -> board;
+    auto write(board const& b) -> std::string;
+} // namespace fen
 } // namespace chesslib
 
 #endif

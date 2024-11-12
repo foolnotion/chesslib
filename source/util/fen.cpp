@@ -2,10 +2,12 @@
 #include <ranges>
 
 #include "chesslib/util/fen.hpp"
-#include "chesslib/board/encoding.hpp"
+#include "chesslib/board/board.hpp"
 
-namespace chesslib {
-    auto fen_parser::parse(std::string_view fen) -> board {
+namespace chesslib::fen {
+    using encoding::coord;
+
+    auto read(std::string_view fen) -> board {
         board b;
         std::ranges::fill(b.pieces, piece::none);
         std::ranges::fill(b.colors, color::none);
@@ -99,4 +101,54 @@ namespace chesslib {
         }
         return b;
     }
-}  // namespace chesslib
+
+    auto write(board const& b) -> std::string {
+        auto const& pieces = b.pieces;
+        auto const& colors = b.colors;
+        auto const& state  = b.state();
+
+        std::string fen;
+        // fill in the piece positions field
+        for (i32 i = me::enum_integer(square::a8); i >= 0; i -= coord::ncol) {
+            for (auto sq = i; coord::valid(sq); ) {
+                // deal with empty squares
+                auto k = sq;
+                while(coord::valid(sq) && pieces[sq] == piece::none) { ++sq; }
+                if (sq > k) {
+                    ASSERT(sq-k <= 8);
+                    fen.push_back(sq-k+'0');
+                }
+
+                while(coord::valid(sq) && pieces[sq] != piece::none) {
+                    auto [p, c] = b[sq++];
+                    fen.push_back(piece_letters[c == color::white ? 0 : 1][me::enum_integer(p)]);
+                }
+            }
+            if (i >= coord::ncol) {
+                fen.push_back('/');
+            }
+        }
+
+        // fill in the side to move
+        fen.push_back(' ');
+        fen.push_back(b.white_to_move() ? 'w' : 'b');
+
+        // fill in castling availability
+        fen.push_back(' ');
+        auto castling = state.castling;
+        if ((castling & castling_rights::wk) == castling_rights::wk) { fen.push_back('K'); }
+        if ((castling & castling_rights::wq) == castling_rights::wq) { fen.push_back('Q'); }
+        if ((castling & castling_rights::bk) == castling_rights::bk) { fen.push_back('k'); }
+        if ((castling & castling_rights::bq) == castling_rights::bq) { fen.push_back('q'); }
+        if (me::enum_integer(castling) == 0) { fen.push_back('-'); }
+
+        // fill in enpassant square
+        fen.push_back(' ');
+        fen += state.enpassant == square::none ? "-" : me::enum_name(state.enpassant);
+
+        // fill in the ply and move count
+        fen.push_back(' ');
+        fen += fmt::format("{} {}", state.ply, state.count);
+        return fen;
+    }
+}  // namespace chesslib::fen

@@ -17,6 +17,7 @@ include(cmake/variables.cmake)
 
 add_library(
     chesslib_chesslib
+    source/board.cpp
     source/util/fen.cpp
 )
 add_library(chesslib::chesslib ALIAS chesslib_chesslib)

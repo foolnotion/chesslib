@@ -2,8 +2,7 @@
 #define CHESSLIB_BOARD_MOVE_GENERATOR_HPP
 
 #include <array>
-#include "chesslib/core/types.hpp"
-#include "chesslib/board/encoding.hpp"
+#include "chesslib/board/board.hpp"
 
 
 namespace chesslib {
@@ -12,6 +11,8 @@ namespace helpers {
 } // namespace helpers
 
 struct move_generator {
+    using coord = encoding::coord;
+
     board& b; // NOLINT
 
     auto moves(move_list& m) const {
@@ -67,7 +68,7 @@ struct move_generator {
             }
         };
 
-        for (u8 i = 0; i < detail_0x88::sz; ++i) {
+        for (u8 i = 0; i < encoding::sz; ++i) {
             if (!coord::valid(i)) { continue; }
             // get source square piece and color
             auto const [p, c] = b[i];
@@ -200,7 +201,7 @@ struct move_generator {
                                 add_move(i, j, 0, 0, 0, 0, 1);
                             }
                         }
-                    }
+                    } // if in_check
 
                     // regular king moves
                     for (auto o : board::king_offsets) {

@@ -1,5 +1,4 @@
 #include <fstream>
-#include <iostream>
 #include <ankerl/unordered_dense.h>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators_all.hpp>
@@ -8,6 +7,10 @@
 #include <fmt/ranges.h>
 
 namespace chesslib::test {
+
+using encoding::coord;
+
+
 namespace helpers {
 auto print(board const& b, auto&& pred, char const* marker, fmt::color color) {
     auto const& pieces = b.pieces;
@@ -31,6 +34,7 @@ auto print(board const& b, auto&& pred, char const* marker, fmt::color color) {
         fmt::print("\n");
     }
 }
+
 
 auto format_moves(board const& board, move_list const& moves) -> std::vector<std::string> {
     // group by target square since this changes the notation => Nec3, Nbc3
@@ -83,7 +87,7 @@ auto format_moves(board const& board, move_list const& moves) -> std::vector<std
             auto const& moves_to_tgt = map.find({static_cast<u8>(p), tgt})->second;
             if (moves_to_tgt.size() > 1) {
                 if (std::ranges::count_if(moves_to_tgt, [&](auto const& m) {
-                    return coord::file(m.source_square) == coord::file(src);
+                    return coord::same_file(m.source_square, src);
                 }) > 1) {
                     str.push_back(ranks[coord::rank(m.source_square)]);
                 } else {
@@ -148,10 +152,8 @@ TEST_CASE("fen export", "[library]")
         "8/4k3/8/8/8/8/r6r/R3K2R w KQ - 0 1"
     };
 
-    for (auto const* fen : test_cases) {
-        board b{fen};
-        REQUIRE(fen == b.export_fen().substr(0, std::strlen(fen)));
-    }
+    auto const* fen = GENERATE_REF(from_range(test_cases));
+    CHECK(fen == board{fen}.export_fen().substr(0, std::strlen(fen)));
 }
 
 TEST_CASE("move generator", "[library]")
@@ -263,7 +265,6 @@ TEST_CASE("attacked squares", "[library]")
         chesslib::board board{fen};
         helpers::print(board, attacked, "▢", board.side() == side_to_move::white ? fmt::color::red : fmt::color::blue);
         fmt::print("\n");
-        fmt::print("in check: {}\n", board.is_king_in_check());
     }
 }
 
@@ -294,9 +295,9 @@ TEST_CASE("rampart", "[library]")
     using json = nlohmann::json;
 
     auto check_case = [&](auto t) {
-        auto const& s = t["start"];
+        auto const& s  = t["start"];
         auto const fen = s["fen"].template get<std::string>();
-        auto const& e = t["expected"];
+        auto const& e  = t["expected"];
         std::vector<std::string> expected_moves;
 
         if (!e.empty()) {
@@ -310,36 +311,14 @@ TEST_CASE("rampart", "[library]")
         }
         std::ranges::sort(expected_moves);
         board b{fen};
-
-
         move_list moves;
         move_generator gen{b};
         gen.moves(moves);
 
-        std::erase_if(moves, [&](auto const& m) {
-            auto tmp = b;
-            auto src = m.source_square;
-            auto tgt = m.target_square;
-
-            auto sq  = m.enpassant
-                        ? src + (coord::file(src) < coord::file(tgt) ? +1 : -1)
-                        : tgt;
-
-            auto [p, c] = b[sq];
-            board_state const s = b.make_move(m);
-            auto ret = b.is_king_in_check();
-            b.unmake_move(m, s);
-            if (m.capture) {
-                b.pieces[sq] = p;
-                b.colors[sq] = c;
-            }
-
-            ASSERT(b.state() == tmp.state());
-            ASSERT(b.pieces == tmp.pieces);
-            ASSERT(b.colors == tmp.colors);
-
-            return ret;
-        });
+        auto tmp = b;
+        auto invalid_move = [&](auto const& m) { return move_maker{b, m}.check(); };
+        std::erase_if(moves, invalid_move);
+        ASSERT(tmp == b);
 
         auto computed_moves = helpers::format_moves(b, moves);
         std::ranges::sort(computed_moves);
