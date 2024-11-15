@@ -6,6 +6,9 @@
 #include <nlohmann/json.hpp>
 #include <fmt/ranges.h>
 
+
+#include <memory>
+
 namespace chesslib::test {
 
 using encoding::coord;
@@ -116,7 +119,7 @@ TEST_CASE("piece values", "[library]")
 
     me::enum_for_each<piece>([](auto val) {
         constexpr auto p = val();
-        fmt::print("{}: {}\n", me::enum_name(p), me::enum_integer(p));
+        fmt::print("{}: {}\t{:08b}\n", me::enum_name(p), me::enum_integer(p), me::enum_integer(p));
     });
 }
 
@@ -133,6 +136,7 @@ TEST_CASE("sliding", "[library]")
 TEST_CASE("fen export", "[library]")
 {
     constexpr std::array test_cases = {
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w",
         "3rr3/1p1kbQ2/p1p1n3/q2p1Bp1/3P4/2N1P1P1/PP4P1/4RRK1 w",
         "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w",
         "8/7p/8/7k/2K1N3/6Q1/5B2/8 w",
@@ -151,6 +155,7 @@ TEST_CASE("fen export", "[library]")
         "8/8/8/3K4/8/4k3/8/8 b",
         "8/4k3/8/8/8/8/r6r/R3K2R w KQ - 0 1"
     };
+    CHECK(board{}.export_fen().substr(0, std::strlen(test_cases.front())) == test_cases.front());
 
     auto const* fen = GENERATE_REF(from_range(test_cases));
     CHECK(fen == board{fen}.export_fen().substr(0, std::strlen(fen)));
@@ -316,8 +321,9 @@ TEST_CASE("rampart", "[library]")
         gen.moves(moves);
 
         auto tmp = b;
-        auto invalid_move = [&](auto const& m) { return move_maker{b, m}.check(); };
-        std::erase_if(moves, invalid_move);
+        auto move_invalid = [&](auto const& m) { return move_maker{b, m}.check(); };
+        // std::erase_if(moves, move_invalid);
+        moves.erase(std::remove_if(moves.begin(), moves.end(), move_invalid), moves.end());
         ASSERT(tmp == b);
 
         auto computed_moves = helpers::format_moves(b, moves);
@@ -385,4 +391,63 @@ TEST_CASE("rampart", "[library]")
         std::ranges::for_each(data["testCases"], check_case);
     }
 }
+
+TEST_CASE("perft", "[library]")
+{
+    auto const* fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w";
+
+    chesslib::board b{fen};
+
+
+    // predicate that checks if a pseudo-legal generated move is actually legal
+    auto move_invalid = [&](auto const& m) { return move_maker{b, m}.check(); };
+
+    auto generate_moves = [&](board& b) {
+        move_list moves;
+        move_generator gen{b};
+        gen.moves(moves);
+        return moves;
+    };
+
+    auto count_nodes = [&](board b, u16 max_depth) -> u64 {
+        std::function<u64(board, u16)> explore = [&](board b, u16 depth) -> u64 {
+            auto count = 0UL;
+            if (depth >= max_depth) {
+                return 1;
+            }
+            b.state().side = depth % 2 == 0 ? side_to_move::white : side_to_move::black;
+
+            auto const s = b.white_to_move() ? side_to_move::black : side_to_move::white;
+            auto const k = b.white_to_move() ? b.state().white_king : b.state().black_king;
+            auto const c = b.white_to_move() ? color::black : color::white;
+
+            // auto& cnt = b.white_to_move() ? counts[1] : counts[0];
+
+            for (auto const m : generate_moves(b)) {
+                move_maker mm{b, m};
+                mm.make(); // make the move
+                if (!b.is_king_in_check()) {
+                    // explore the child nodes
+                    auto cnt = explore(b, depth+1);
+                    if (depth < 1) {
+                        auto src = me::enum_name(static_cast<square>(m.source_square));
+                        auto tgt = me::enum_name(static_cast<square>(m.target_square));
+                        fmt::print("{}{}{}: {}\n", std::string(depth, '\t'), src, tgt, cnt);
+                    }
+                    count += cnt;
+                }
+                mm.undo();
+            }
+            return count;
+        };
+        return explore(b, 0);
+    };
+
+
+    auto [min_depth, max_depth] = std::tuple{5,6};
+    for (auto depth = min_depth; depth <= max_depth; ++depth) {
+        fmt::print("depth: {}, nodes: {}\n", depth, count_nodes(b, depth));
+    }
+}
+
 } // namespace chesslib::test

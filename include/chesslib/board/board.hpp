@@ -39,6 +39,7 @@ struct move_maker {
     auto make() -> void;
     auto undo() -> void;
     auto check() -> bool;
+    auto captured() const -> piece { return std::get<1>(capture_info_); }
 
     private:
     board& board_; // NOLINT
@@ -52,33 +53,32 @@ class board
     using coord = encoding::coord;
 
     template<piece P>
-    static constexpr bool is_sliding_v = ((P == piece::bishop) || (P == piece::rook) || (P == piece::queen));
+    static constexpr bool is_sliding_v = (is<piece::bishop, piece::rook, piece::queen>(P));
 
     template<piece... Pieces>
     requires (is_sliding_v<Pieces> && ...) || (!is_sliding_v<Pieces> && ...)
     auto attacked_by(auto const& offsets, auto square_idx, auto side) const -> bool {
+        using std::ranges::any_of;
 
         if (!coord::valid(square_idx)) { return false; }
         auto c = side == side_to_move::white ? color::white : color::black;
 
         if constexpr ((is_sliding_v<Pieces> && ...)) {
             // if the pieces are all sliding
-            return std::ranges::any_of(offsets, [&](auto a) {
+            return any_of(offsets, [&](auto const a) {
                 for (auto j = square_idx + a; coord::valid(j); j += a) {
-                    auto const [p, d] = (*this)[j];
-                    if (((p == Pieces) || ...) && c == d) {
-                        return true;
-                    }
-                    if (p != piece::none) { break; }
+                    auto const p = pieces[j];
+                    if (p == piece::none) { continue; }
+                    if (c != colors[j]) { break; }
+                    return is<Pieces...>(p);
                 }
                 return false;
             });
         } else {
             // else if the pieces are not sliding
-            return std::ranges::any_of(offsets, [&](auto a) {
+            return any_of(offsets, [&](auto const a) {
                 if (auto j = square_idx + a; coord::valid(j)) {
-                    auto const [p, d] = (*this)[j];
-                    return ((p == Pieces) || ...) && c == d;
+                    return c == colors[j] && is<Pieces...>(pieces[j]);
                 }
                 return false;
             });
@@ -134,8 +134,7 @@ class board
         return attacked_by<pawn>         (pawn_capture_offsets, i, s) ||
                attacked_by<knight>       (knight_offsets, i, s)       ||
                attacked_by<bishop, queen>(bishop_offsets, i, s)       ||
-               attacked_by<rook, queen>  (rook_offsets, i, s)         ||
-               attacked_by<king>         (king_offsets, i, s);
+               attacked_by<rook, queen>  (rook_offsets, i, s);
     }
 
     auto is_attacked(square sq, side_to_move s) const -> bool
@@ -144,6 +143,14 @@ class board
     }
 
     auto is_king_in_check() const -> bool {
+        auto [me, enemy] = white_to_move() ? std::tuple{state_.white_king, state_.black_king}
+                                           : std::tuple{state_.black_king, state_.white_king};
+        if (std::abs(coord::file(me)-coord::file(enemy)) <= 1 &&
+            std::abs(coord::rank(me)-coord::rank(enemy)) <= 1)
+        {
+            return true;
+        }
+
         auto const s = white_to_move() ? side_to_move::black : side_to_move::white;
         auto const k = white_to_move() ? state_.white_king : state_.black_king;
         return is_attacked(k, s);

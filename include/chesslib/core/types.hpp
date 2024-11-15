@@ -36,16 +36,15 @@ struct move {
 
 // a stack-allocated vector to hold the move list
 static constexpr auto move_list_capacity{256};
-// using move_list = gch::small_vector<move, move_list_capacity>;
-using move_list = std::vector<move>;
+using move_list = gch::small_vector<move, move_list_capacity>;
 
 // pieces
 enum class piece : u8 {
-    king, queen, rook, bishop, knight, pawn, none
+    none = 0, pawn, knight, bishop, rook, queen, king
 };
 
 template<piece... P>
-inline auto is(piece p) { return ((p == P), ...); }
+constexpr inline auto is(piece p) { return ((p == P) || ...); }
 
 static constexpr auto char2piece(char c) {
     switch(c) {
@@ -61,7 +60,7 @@ static constexpr auto char2piece(char c) {
 
 // colors
 enum class color : u8 {
-    white, black, none
+    none = 0, white, black
 };
 
 // squares
@@ -94,13 +93,13 @@ enum class side_to_move : u8 {
 
 // ascii pieces for printing
 static constexpr std::array piece_symbols = {
-    std::array{ "♔", "♕", "♖", "♗", "♘", "♙", " " }, // white
-    std::array{ "♚", "♛", "♜", "♝", "♞", "♟︎", " " }  // black
+    std::array{" ", "♙" ,"♘" ,"♗" ,"♖" ,"♕" ,"♔"}, // white
+    std::array{" " ,"♟" ,"♞" ,"♝" ,"♜" ,"♛" ,"♚"}  // black
 };
 
 static constexpr std::array piece_letters = {
-    std::array{'K', 'Q', 'R', 'B', 'N', 'P', ' '},
-    std::array{'k', 'q', 'r', 'b', 'n', 'p', ' '}
+    std::array{' ', 'P', 'N', 'B', 'R', 'Q', 'K'},
+    std::array{' ', 'p', 'n', 'b', 'r', 'q', 'k'}
 };
 }  // namespace chesslib
 

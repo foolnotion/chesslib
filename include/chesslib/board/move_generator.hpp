@@ -4,7 +4,6 @@
 #include <array>
 #include "chesslib/board/board.hpp"
 
-
 namespace chesslib {
 
 namespace helpers {
@@ -15,7 +14,7 @@ struct move_generator {
 
     board& b; // NOLINT
 
-    auto moves(move_list& m) const {
+    auto moves(auto& m) const {
         auto const side     = b.white_to_move();
         auto const castling = b.castling();
         auto const& pieces  = b.pieces;

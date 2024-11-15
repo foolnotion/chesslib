@@ -38,8 +38,11 @@
             buildInputs = with pkgs; [
               # dev
               gdb
+              gcc14
               linuxPackages_latest.perf
               valgrind
+              hotspot
+              hyperfine
 
               # deps
               catch2_3

@@ -28,7 +28,7 @@ namespace detail {
         static inline constexpr uint64_t(max)() { return std::numeric_limits<result_type>::max(); }
 
         explicit romu_trio(uint64_t seed) noexcept
-            : state{ detail::split_mix64(seed), detail::split_mix64(seed), detail::split_mix64(seed) }
+            : state_{ detail::split_mix64(seed), detail::split_mix64(seed), detail::split_mix64(seed) }
         {
             for (auto i = 0; i < 10; ++i) {
                 operator()();
@@ -37,24 +37,24 @@ namespace detail {
 
         // disallow copying (to prevent misuse)
         romu_trio(romu_trio const&) = delete;
-        romu_trio& operator=(romu_trio const&) = delete;
+        auto operator=(romu_trio const&) -> romu_trio& = delete;
 
         // allow moving
         romu_trio(romu_trio&&) noexcept = default;
-        romu_trio& operator=(romu_trio&&) noexcept = default;
+        auto operator=(romu_trio&&) noexcept -> romu_trio& = default;
 
         ~romu_trio() noexcept = default;
 
-        inline uint64_t operator()() noexcept
+        inline auto operator()() noexcept -> uint64_t
         {
-            uint64_t xp = state.x;
-            uint64_t yp = state.y;
-            uint64_t zp = state.z;
-            state.x = 15241094284759029579U * zp;
-            state.y = yp - xp;
-            state.y = detail::rotl(state.y, 12U);
-            state.z = zp - yp;
-            state.z = detail::rotl(state.z, 44U);
+            uint64_t xp = state_.x;
+            uint64_t yp = state_.y;
+            uint64_t zp = state_.z;
+            state_.x = 15241094284759029579U * zp;
+            state_.y = yp - xp;
+            state_.y = detail::rotl(state_.y, 12U);
+            state_.z = zp - yp;
+            state_.z = detail::rotl(state_.z, 44U);
             return xp;
         }
 
@@ -64,7 +64,7 @@ namespace detail {
             uint64_t x;
             uint64_t y;
             uint64_t z;
-        } state;
+        } state_;
     };
 } // namespace chesslib
 #endif
