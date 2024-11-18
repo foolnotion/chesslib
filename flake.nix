@@ -37,6 +37,7 @@
 
             buildInputs = with pkgs; [
               # dev
+              cxxopts
               gdb
               gcc14
               linuxPackages_latest.perf
@@ -51,9 +52,11 @@
               libassert
               libdwarf
               magic-enum
+              mdspan
               nlohmann_json
               unordered_dense
               zstd
+              gtl
             ];
           };
 

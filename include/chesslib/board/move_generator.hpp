@@ -25,8 +25,8 @@ struct move_generator {
         m.clear();
 
         auto add_move = [&](u8 source, u8 target, u8 promotion, u8 capture, u8 double_pawn, u8 enpassant, u8 castling) {
-            ASSERT(coord::valid(source));
-            ASSERT(coord::valid(target));
+            // ASSERT(coord::valid(source));
+            // ASSERT(coord::valid(target));
             // fmt::print("{}{}-{}\n", piece_letters[0][static_cast<u8>(b.pieces[source])], me::enum_name(static_cast<square>(source)), me::enum_name(static_cast<square>(target)));
             m.push_back({
                 .source_square = source,
@@ -67,7 +67,7 @@ struct move_generator {
             }
         };
 
-        for (u8 i = 0; i < encoding::sz; ++i) {
+        for (u8 i = 0; i < encoding::length; ++i) {
             if (!coord::valid(i)) { continue; }
             // get source square piece and color
             auto const [p, c] = b[i];

@@ -3,6 +3,10 @@
     "version-semver": "0.1.0",
     "dependencies": [
       {
+        "name": "cxxopts",
+        "version>=": "3.1.1"
+      },
+      {
         "name": "fmt",
         "version>=": "10.2.1#2"
       },

@@ -1,3 +1,4 @@
+#include <deque>
 #include <fstream>
 #include <ankerl/unordered_dense.h>
 #include <catch2/catch_test_macros.hpp>
@@ -6,8 +7,9 @@
 #include <nlohmann/json.hpp>
 #include <fmt/ranges.h>
 
+#include <chesslib/core/types.hpp>
+#include <chesslib/core/zobrist.hpp>
 
-#include <memory>
 
 namespace chesslib::test {
 
@@ -37,6 +39,27 @@ auto print(board const& b, auto&& pred, char const* marker, fmt::color color) {
         fmt::print("\n");
     }
 }
+
+
+struct perft_result {
+    u64 count{0};
+    u64 capture{0};
+    u64 promotion{0};
+    u64 enpassant{0};
+    u64 check{0};
+    u64 mate{0};
+
+    friend auto operator+(perft_result const& a, perft_result const& b) -> perft_result {
+        return {
+            .count = a.count + b.count,
+            .capture = a.capture + b.capture,
+            .promotion = a.promotion + b.promotion,
+            .enpassant = a.enpassant + b.enpassant,
+            .check = a.check + b.check,
+            .mate = a.mate + b.mate
+        };
+    }
+};
 
 
 auto format_moves(board const& board, move_list const& moves) -> std::vector<std::string> {
@@ -392,61 +415,45 @@ TEST_CASE("rampart", "[library]")
     }
 }
 
-TEST_CASE("perft", "[library]")
+TEST_CASE("zobrist", "[library]")
 {
     auto const* fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w";
-
     chesslib::board b{fen};
+    zobrist::hasher hasher{};
 
-
-    // predicate that checks if a pseudo-legal generated move is actually legal
-    auto move_invalid = [&](auto const& m) { return move_maker{b, m}.check(); };
-
-    auto generate_moves = [&](board& b) {
-        move_list moves;
-        move_generator gen{b};
-        gen.moves(moves);
-        return moves;
+    auto check_move = [&](auto const m) {
+        auto h1 = hasher(b);
+        move_maker mm{b, m};
+        mm.make();
+        mm.undo();
+        auto h2 = hasher(b);
+        REQUIRE(h1 == h2);
     };
 
-    auto count_nodes = [&](board b, u16 max_depth) -> u64 {
-        std::function<u64(board, u16)> explore = [&](board b, u16 depth) -> u64 {
-            auto count = 0UL;
-            if (depth >= max_depth) {
-                return 1;
-            }
-            b.state().side = depth % 2 == 0 ? side_to_move::white : side_to_move::black;
-
-            auto const s = b.white_to_move() ? side_to_move::black : side_to_move::white;
-            auto const k = b.white_to_move() ? b.state().white_king : b.state().black_king;
-            auto const c = b.white_to_move() ? color::black : color::white;
-
-            // auto& cnt = b.white_to_move() ? counts[1] : counts[0];
-
-            for (auto const m : generate_moves(b)) {
-                move_maker mm{b, m};
-                mm.make(); // make the move
-                if (!b.is_king_in_check()) {
-                    // explore the child nodes
-                    auto cnt = explore(b, depth+1);
-                    if (depth < 1) {
-                        auto src = me::enum_name(static_cast<square>(m.source_square));
-                        auto tgt = me::enum_name(static_cast<square>(m.target_square));
-                        fmt::print("{}{}{}: {}\n", std::string(depth, '\t'), src, tgt, cnt);
-                    }
-                    count += cnt;
-                }
-                mm.undo();
-            }
-            return count;
+    SECTION("a2a4") {
+        move m{
+            .source_square = square::a2,
+            .target_square = square::a4,
+            .promotion     = 0,
+            .capture       = 0,
+            .double_pawn   = 0,
+            .enpassant     = 0,
+            .castling      = 0
         };
-        return explore(b, 0);
-    };
+        check_move(m);
+    }
 
-
-    auto [min_depth, max_depth] = std::tuple{5,6};
-    for (auto depth = min_depth; depth <= max_depth; ++depth) {
-        fmt::print("depth: {}, nodes: {}\n", depth, count_nodes(b, depth));
+    SECTION("a2a3") {
+        move m{
+            .source_square = square::a2,
+            .target_square = square::a3,
+            .promotion     = 0,
+            .capture       = 0,
+            .double_pawn   = 0,
+            .enpassant     = 0,
+            .castling      = 0
+        };
+        check_move(m);
     }
 }
 

@@ -18,9 +18,12 @@ include(cmake/variables.cmake)
 add_library(
     chesslib_chesslib
     source/board.cpp
+    source/zobrist.cpp
     source/util/fen.cpp
+    source/util/perft.cpp
 )
 add_library(chesslib::chesslib ALIAS chesslib_chesslib)
+add_executable(perft source/perft/perft.cpp)
 
 include(GenerateExportHeader)
 generate_export_header(
@@ -58,9 +61,11 @@ target_include_directories(
 
 target_compile_features(chesslib_chesslib PUBLIC cxx_std_20)
 
+find_package(cxxopts CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 find_package(libassert CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
+find_package(mdspan CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(unordered_dense CONFIG REQUIRED)
 
@@ -74,8 +79,11 @@ target_link_libraries(chesslib_chesslib
     libassert::assert
     magic_enum::magic_enum
     nlohmann_json::nlohmann_json
+    std::mdspan
     unordered_dense::unordered_dense
 )
+
+target_link_libraries(perft PUBLIC chesslib::chesslib cxxopts::cxxopts)
 
 # ---- Install rules ----
 

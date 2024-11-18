@@ -59,6 +59,8 @@ auto move_maker::make() -> void {
     auto const white_no_castling = ~(castling_rights::wk | castling_rights::wq);
     auto const black_no_castling = ~(castling_rights::bk | castling_rights::bq);
 
+    enpassant = square::none;
+
     if (move_.castling) {
         castling &= (white_to_move ? white_no_castling : black_no_castling);
         switch(tgt) {

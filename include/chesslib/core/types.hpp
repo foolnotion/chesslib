@@ -60,7 +60,7 @@ static constexpr auto char2piece(char c) {
 
 // colors
 enum class color : u8 {
-    none = 0, white, black
+    white, black, none
 };
 
 // squares
@@ -86,8 +86,7 @@ enum class castling_rights : u8 {
 
 // side to move
 enum class side_to_move : u8 {
-    white = 1U << 0U,
-    black = 1U << 1U
+    white = 0, black
 };
 
 
@@ -106,11 +105,6 @@ static constexpr std::array piece_letters = {
 // specializations for the magic_enum library
 template<>
 struct magic_enum::customize::enum_range<chesslib::castling_rights> {
-    static constexpr bool is_flags = true;
-};
-
-template<>
-struct magic_enum::customize::enum_range<chesslib::side_to_move> {
     static constexpr bool is_flags = true;
 };
 

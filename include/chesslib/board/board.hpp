@@ -114,7 +114,7 @@ class board
 
     auto clear() -> void
     {
-        for (auto i = 0UL; i < encoding::sz; ++i) {
+        for (auto i = 0UL; i < encoding::length; ++i) {
             pieces[i] = piece::none;
             colors[i] = color::none;
         }
@@ -190,8 +190,8 @@ class board
     auto white_to_move() const -> bool { return state_.side == side_to_move::white; }
     auto black_to_move() const -> bool { return state_.side == side_to_move::black; }
 
-    std::array<piece, encoding::sz> pieces {encoding::default_pieces()};
-    std::array<color, encoding::sz> colors {encoding::default_colors()};
+    std::array<piece, encoding::length> pieces {encoding::default_pieces()};
+    std::array<color, encoding::length> colors {encoding::default_colors()};
 
     // printing functions
     auto print() const -> void;

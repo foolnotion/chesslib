@@ -4,9 +4,9 @@
 #include "chesslib/core/types.hpp"
 
 namespace chesslib::encoding {
-constexpr auto sz {128UL};
+constexpr auto length {128UL};
 
-constexpr auto default_pieces() -> std::array<piece, sz>
+constexpr auto default_pieces() -> std::array<piece, length>
 {
     constexpr auto k = piece::king;
     constexpr auto q = piece::queen;
@@ -26,7 +26,7 @@ constexpr auto default_pieces() -> std::array<piece, sz>
             r, n, b, q, k, b, n, r, x, x, x, x, x, x, x, x};
 }
 
-constexpr auto default_colors() -> std::array<color, sz>
+constexpr auto default_colors() -> std::array<color, length>
 {
     constexpr auto w = color::white;
     constexpr auto b = color::black;
