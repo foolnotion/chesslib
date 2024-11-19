@@ -128,7 +128,7 @@ struct move_generator {
                         if (c == b.colors[j]) { continue; } // cannot capture own piece
 
                         // the move is legal, we add it to the list
-                        add_move(i, j, u8{0}, u8{1}, u8{0}, u8{0}, u8{0});
+                        add_move(i, j, u8{0}, b.pieces[j] != piece::none, u8{0}, u8{0}, u8{0});
                     }
                     break;
                 }

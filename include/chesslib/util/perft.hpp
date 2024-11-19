@@ -7,18 +7,20 @@
 namespace chesslib {
 
 struct perft_result {
-    uint64_t count{0};
-    uint64_t capture{0};
-    uint64_t promotion{0};
-    uint64_t enpassant{0};
-    uint64_t check{0};
-    uint64_t mate{0};
+    u64 count{0};
+    u64 capture{0};
+    u64 enpassant{0};
+    u64 castle{0};
+    u64 promotion{0};
+    u64 check{0};
+    u64 mate{0};
 
     auto operator+=(perft_result const& other) -> perft_result& {
         count += other.count;
         capture += other.capture;
-        promotion += other.promotion;
         enpassant += other.enpassant;
+        castle += other.castle;
+        promotion += other.promotion;
         check += other.check;
         mate += other.mate;
         return *this;
@@ -31,6 +33,7 @@ struct perft_result {
 };
 
 auto perft(std::string_view fen, int depth) -> uint64_t;
+auto perft_debug(std::string_view fen, int depth) -> perft_result;
 
 } // namespace chesslib
 
