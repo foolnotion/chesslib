@@ -23,8 +23,8 @@ struct board_state {
     square enpassant{square::none};
     square white_king{square::e1};
     square black_king{square::e8};
-    i32 ply{0};
-    i32 count{0};
+    u8 ply{0};
+    u8 count{0};
 
     auto operator==(board_state const& s) const -> bool {
         return std::tie(side, castling, enpassant, white_king, black_king, ply, count) ==
@@ -57,32 +57,26 @@ class board
 
     template<piece... Pieces>
     requires (is_sliding_v<Pieces> && ...) || (!is_sliding_v<Pieces> && ...)
-    auto attacked_by(auto const& offsets, auto square_idx, auto side) const -> bool {
-        using std::ranges::any_of;
-
+    inline auto attacked_by(auto const& offsets, auto square_idx, auto side) const -> bool {
         if (!coord::valid(square_idx)) { return false; }
-        auto c = side == side_to_move::white ? color::white : color::black;
+        auto const c = static_cast<color>(side);
 
-        if constexpr ((is_sliding_v<Pieces> && ...)) {
-            // if the pieces are all sliding
-            return any_of(offsets, [&](auto const a) {
-                for (auto j = square_idx + a; coord::valid(j); j += a) {
+        for (auto const i : offsets) {
+            if constexpr ((is_sliding_v<Pieces> && ...)) { // sliding pieces
+                for (auto j = square_idx + i; coord::valid(j); j += i) {
                     auto const p = pieces[j];
                     if (p == piece::none) { continue; }
-                    if (c != colors[j]) { break; }
-                    return is<Pieces...>(p);
+                    if (!(c == colors[j] && is<Pieces...>(p))) { break; }
+                    return true;
                 }
-                return false;
-            });
-        } else {
-            // else if the pieces are not sliding
-            return any_of(offsets, [&](auto const a) {
-                if (auto j = square_idx + a; coord::valid(j)) {
-                    return c == colors[j] && is<Pieces...>(pieces[j]);
+            } else { // not sliding
+                if (auto j = square_idx + i; coord::valid(j)) {
+                    if (!(c == colors[j] && is<Pieces...>(pieces[j]))) { continue; }
+                    return true;
                 }
-                return false;
-            });
+            }
         }
+        return false;
     }
 
     // private state
@@ -90,10 +84,10 @@ class board
 
     public:
     static constexpr std::array pawn_offsets  {+15, +16, +17, +32};
-    static constexpr std::array knight_offsets{+33, +31, +18, +14, -33, -31, -18, -14};
+    static constexpr std::array knight_offsets{-33, -31, -18, -14, +14, +18, +31, +33};
     static constexpr std::array bishop_offsets{-17, -15, +15, +17};
     static constexpr std::array rook_offsets  {-16, -1, +1, +16};
-    static constexpr std::array queen_offsets {-17, -15, +15, +17, -16, -1, +1, +16};
+    static constexpr std::array queen_offsets {-17, -16, -15, -1, +1, +15, +16, +17};
     static constexpr std::array king_offsets  {-17, -16, -15, -1, +1, +15, +16, +17};
 
     board() = default;
@@ -120,7 +114,7 @@ class board
         }
     }
 
-    auto is_attacked(u8 i, side_to_move s) const -> bool
+    inline auto is_attacked(u8 i, side_to_move s) const -> bool
     {
         // if a piece of the same color is on square i,
         // then return false (cannot attack our own piece)
@@ -137,23 +131,20 @@ class board
                attacked_by<rook, queen>  (rook_offsets, i, s);
     }
 
-    auto is_attacked(square sq, side_to_move s) const -> bool
+    inline auto is_attacked(square sq, side_to_move s) const -> bool
     {
         return is_attacked(me::enum_integer(sq), s);
     }
 
-    auto is_king_in_check() const -> bool {
-        auto [me, enemy] = white_to_move() ? std::tuple{state_.white_king, state_.black_king}
-                                           : std::tuple{state_.black_king, state_.white_king};
-        if (std::abs(coord::file(me)-coord::file(enemy)) <= 1 &&
-            std::abs(coord::rank(me)-coord::rank(enemy)) <= 1)
-        {
+    inline auto is_king_in_check() const -> bool {
+        auto const [a, b] = coord::file_rank(state_.white_king);
+        auto const [c, d] = coord::file_rank(state_.black_king);
+        if (std::abs(a-c) <= 1 && std::abs(b-d) <= 1) {
             return true;
         }
-
-        auto const s = white_to_move() ? side_to_move::black : side_to_move::white;
-        auto const k = white_to_move() ? state_.white_king : state_.black_king;
-        return is_attacked(k, s);
+        return white_to_move()
+            ? is_attacked(state_.white_king, side_to_move::black)
+            : is_attacked(state_.black_king, side_to_move::white);
     }
 
     auto swap(u8 src, u8 tgt) {
@@ -161,12 +152,12 @@ class board
         std::swap(colors[src], colors[tgt]);
     }
 
-    inline auto operator[](int i) const -> std::pair<piece, color>
+    inline auto operator[](int i) const -> std::tuple<piece, color>
     {
         return {pieces[i], colors[i]};
     }
 
-    inline auto operator[](square sq) const -> std::pair<piece, color>
+    inline auto operator[](square sq) const -> std::tuple<piece, color>
     {
         return (*this)[me::enum_integer(sq)];
     }

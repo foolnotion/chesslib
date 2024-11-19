@@ -14,6 +14,16 @@ struct move_generator {
 
     board& b; // NOLINT
 
+    inline auto ready_to_promote(auto i) const {
+        return b.white_to_move() ? (i >= square::a7 && i <= square::h7)
+                    : (i >= square::a2 && i <= square::h2);
+    };
+
+    inline auto is_on_start(auto i) const {
+        return b.white_to_move() ? (i >= square::a2 && i <= square::h2)
+                    : (i >= square::a7 && i <= square::h7);
+    };
+
     auto moves(auto& m) const {
         auto const side     = b.white_to_move();
         auto const castling = b.castling();
@@ -25,9 +35,6 @@ struct move_generator {
         m.clear();
 
         auto add_move = [&](u8 source, u8 target, u8 promotion, u8 capture, u8 double_pawn, u8 enpassant, u8 castling) {
-            // ASSERT(coord::valid(source));
-            // ASSERT(coord::valid(target));
-            // fmt::print("{}{}-{}\n", piece_letters[0][static_cast<u8>(b.pieces[source])], me::enum_name(static_cast<square>(source)), me::enum_name(static_cast<square>(target)));
             m.push_back({
                 .source_square = source,
                 .target_square = target,
@@ -43,16 +50,6 @@ struct move_generator {
             for (auto x : {piece::knight, piece::bishop, piece::rook, piece::queen}) {
                 add_move(src, tgt, static_cast<u8>(x), cap, dbl, enp, cst);
             }
-        };
-
-        auto ready_to_promote = [&](auto i) {
-            return side ? (i >= square::a7 && i <= square::h7)
-                        : (i >= square::a2 && i <= square::h2);
-        };
-
-        auto is_on_start = [&](auto i) {
-            return side ? (i >= square::a2 && i <= square::h2)
-                        : (i >= square::a7 && i <= square::h7);
         };
 
         auto add_sliding = [&](auto const& offsets, auto i) {
@@ -88,7 +85,7 @@ struct move_generator {
                     {
                         u8 j = i + push_once;
                         if (coord::valid(j)) {
-                            auto [q, d] = b[j];
+                            auto const q = pieces[j];
                             if (q == piece::none) {
                                 if (ready_to_promote(i)) { add_promotions(i, j, 0, 0, 0, 0); }
                                 else                     { add_move(i, j, 0, 0, 0, 0, 0); }
@@ -97,8 +94,7 @@ struct move_generator {
                             // check if I can push twice
                             if (is_on_start(i)) {
                                 u8 k = i + push_twice;
-                                auto [r, e] = b[k];
-                                if (q == piece::none && r == piece::none) {
+                                if (q == piece::none && pieces[k] == piece::none) {
                                     add_move(i, k, 0, 0, 1, 0, 0);
                                 }
                             }
@@ -129,11 +125,10 @@ struct move_generator {
                         if (!coord::valid(j)) { continue; }
 
                         // get target square piece q and color c
-                        auto const [q, d] = b[j];
-                        if (c == d) { continue; } // cannot capture own piece
+                        if (c == b.colors[j]) { continue; } // cannot capture own piece
 
                         // the move is legal, we add it to the list
-                        add_move(i , j, 0, (q != piece::none && d != c) ? u8{1} : u8{0}, 0, 0, 0);
+                        add_move(i, j, u8{0}, u8{1}, u8{0}, u8{0}, u8{0});
                     }
                     break;
                 }
@@ -178,7 +173,7 @@ struct move_generator {
                         // can I castle on the king side?
                         if (me::enum_integer(castling & kingside) != 0) {
                             auto path = side ? std::array{square::f1, square::g1}
-                                            : std::array{square::f8, square::g8};
+                                             : std::array{square::f8, square::g8};
 
                             // check if there is something in the way or the square is attacked
                             if (std::ranges::all_of(path, [&](auto j) {
