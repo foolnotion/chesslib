@@ -25,6 +25,10 @@
       {
         "name": "catch2",
         "version>=": "3.7.0"
+      },
+      {
+        "name": "mdspan",
+        "version>=": "0.6.0"
       }
     ],
     "default-features": [],
