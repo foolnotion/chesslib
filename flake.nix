@@ -52,7 +52,6 @@
               libassert
               libdwarf
               magic-enum
-              mdspan
               nlohmann_json
               unordered_dense
               zstd

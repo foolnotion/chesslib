@@ -65,12 +65,14 @@ find_package(cxxopts CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 find_package(libassert CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
-find_package(mdspan CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(unordered_dense CONFIG REQUIRED)
 
 # small_vector is vendored in
 add_subdirectory(thirdparty/small_vector)
+
+# mdspan is vendored in
+add_subdirectory(thirdparty/mdspan)
 
 target_link_libraries(chesslib_chesslib
     PUBLIC
