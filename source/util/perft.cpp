@@ -14,7 +14,6 @@ auto generate_moves(board& b) {
 
 inline auto perft_debug(board& b, int const k, int d, int const depth) -> perft_result {
     b.state().side = static_cast<side_to_move>((d+k) % 2);
-
     auto flip_side = [](board& b) {
         b.state().side = static_cast<side_to_move>((static_cast<u8>(b.state().side)+1) % 2);
     };
@@ -39,7 +38,7 @@ inline auto perft_debug(board& b, int const k, int d, int const depth) -> perft_
             }
             flip_side(b);
             if (d == 0) {
-                fmt::print("{}: {}\n", move_string(m), c.count);
+                fmt::print("{}{}: {}\n", std::string(d, '\t'), move_string(m), c.count);
             }
             p += c;
         }

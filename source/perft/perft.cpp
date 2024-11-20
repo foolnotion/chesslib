@@ -8,7 +8,7 @@ auto run_perft(std::string_view fen, int depth) -> void {
     auto stop  = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count() / 1e6; // NOLINT
     auto nps = static_cast<double>(count) / elapsed;
-    fmt::print("\nNodes searched: {:L}\nNodes per second: {:.1L}\nElapsed: {} seconds\n", count, nps, elapsed);
+    fmt::print("\nNodes searched: {:L}\nNodes per second: {:L}\nElapsed: {} seconds\n", count, nps, elapsed);
 }
 
 auto run_perft_debug(std::string_view fen, int depth) -> void {
@@ -19,7 +19,7 @@ auto run_perft_debug(std::string_view fen, int depth) -> void {
     auto nps = static_cast<double>(stats.count) / elapsed;
     // fmt::print("\nCaptures: {:L}, Promotions: {:L}, Enpassant: {:L}, Checks: {:L}, Mates: {:L}\n", stats.capture, stats.promotion, stats.enpassant, stats.check, stats.mate);
     fmt::print("\nCaptures: {:L}, Enpassant: {:L}, Castles: {:L}, Promotions: {:L}, Checks: {:L}, Mates: {:L}\n", stats.capture, stats.enpassant, stats.castle, stats.promotion, stats.check, stats.mate);
-    fmt::print("\nNodes searched: {:L}\nNodes per second: {:.1L}\nElapsed: {} seconds\n", stats.count, nps, elapsed);
+    fmt::print("\nNodes searched: {:L}\nNodes per second: {:L}\nElapsed: {} seconds\n", stats.count, nps, elapsed);
 }
 
 auto main(int argc, char** argv) -> int {
