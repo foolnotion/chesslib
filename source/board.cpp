@@ -19,6 +19,12 @@ auto board::print() const -> void
 }
 
 auto move_maker::make() -> void {
+    auto& state = board_.state();
+    auto& castling  = state.castling;
+    auto& enpassant = state.enpassant;
+    auto const side = state.side;
+
+    // make a copy of the old state
     state_ = board_.state();
 
     auto& pieces = board_.pieces;
@@ -40,6 +46,17 @@ auto move_maker::make() -> void {
 
         capture_info_ = {sq, pieces[sq], colors[sq] };
 
+        if (pieces[sq] == piece::rook) {
+            // capturing a rook removes castling rights
+            if (white_to_move) {
+                if (tgt == square::h8) { state.castling &= ~castling_rights::bk; }
+                if (tgt == square::a8) { state.castling &= ~castling_rights::bq; }
+            } else {
+                if (tgt == square::h1) { state.castling &= ~castling_rights::wk; }
+                if (tgt == square::a1) { state.castling &= ~castling_rights::wq; }
+            }
+        }
+
         pieces[sq] = piece::none;
         colors[sq] = color::none;
     }
@@ -50,11 +67,7 @@ auto move_maker::make() -> void {
         pieces[tgt] = static_cast<piece>(move_.promotion);
     }
 
-    // make a copy of the old state
-    auto& state = board_.state();
-    auto& castling  = state.castling;
-    auto& enpassant = state.enpassant;
-    auto const side = state.side;
+
 
     auto const white_no_castling = ~(castling_rights::wk | castling_rights::wq);
     auto const black_no_castling = ~(castling_rights::bk | castling_rights::bq);
