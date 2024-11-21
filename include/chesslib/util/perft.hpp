@@ -30,6 +30,11 @@ struct perft_result {
         a += b;
         return a;
     }
+
+    friend auto operator==(perft_result const& a, perft_result const& b) {
+        return std::tie(a.count, a.capture, a.enpassant, a.castle, a.promotion, a.check, a.mate) ==
+               std::tie(b.count, b.capture, b.enpassant, b.castle, b.promotion, b.check, b.mate);
+    }
 };
 
 auto perft(std::string_view fen, int depth) -> uint64_t;

@@ -20,6 +20,7 @@ include(Catch)
 add_executable(chesslib_test
     source/chesslib_test.cpp
     source/fen.cpp
+    source/perft.cpp
 )
 
 target_link_libraries(chesslib_test
