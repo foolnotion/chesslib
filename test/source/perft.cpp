@@ -1,6 +1,8 @@
 #include <chesslib/chesslib.hpp>
 #include <chesslib/util/perft.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <fstream>
+#include <ranges>
 
 TEST_CASE("perft", "[library]") {
     /* perft test cases, see:
@@ -89,4 +91,24 @@ TEST_CASE("perft", "[library]") {
     SECTION("position 4") { check(3); }
     SECTION("position 5") { check(4); }
     SECTION("position 6") { check(5); }
+
+    SECTION("vajolet positions") {
+        // from the test suite of the chess engine vajolet:
+        // https://github.com/elcabesa/vajolet/blob/master/tests/perft.txt
+        std::ifstream f("./test/testcases/vajolet-perft.txt");
+        for (std::string line; std::getline(f, line);) {
+            auto i = 0;
+            std::string fen;
+            for (auto field : std::views::split(line, ',')) {
+                std::string sv{field.begin(), field.end()};
+                if (i == 0) {
+                    fen = sv;
+                } else {
+                    INFO(fmt::format("perft({}, {}) == {}\n", fen, i, sv));
+                    REQUIRE(chesslib::perft(fen, i) == std::stoll(sv));
+                }
+                ++i;
+            }
+        }
+    }
 }
