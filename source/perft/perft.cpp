@@ -39,12 +39,14 @@ legal moves to count all the leaf nodes of a certain depth\n";
     auto result = options.parse(argc, argv);
     if (result.arguments().empty() || result.count("help")) {
         fmt::print("{}\n", options.help());
+        return 0;
     }
 
     auto const depth = result["depth"].as<int>();
     auto const fen   = result["fen"].as<std::string>();
     auto const debug = result["debug"].as<bool>();
 
+    fmt::print("Fen: {}, Depth: {}\n\n", fen, depth);
     // set the locale for formatting
     std::locale::global(std::locale("en_US.UTF-8"));
     debug ? run_perft_debug(fen,depth) : run_perft(fen, depth);
