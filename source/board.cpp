@@ -22,7 +22,6 @@ auto move_maker::make() -> void {
     auto& state = board_.state();
     auto& castling  = state.castling;
     auto& enpassant = state.enpassant;
-    auto const side = state.side;
 
     // make a copy of the old state
     state_ = board_.state();

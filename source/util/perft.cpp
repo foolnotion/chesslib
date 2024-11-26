@@ -69,14 +69,12 @@ inline auto perft(board& b, int const k, int d, int const depth) -> u64 {
 
 auto perft_debug(std::string_view fen, int depth) -> perft_result {
     board b{fen};
-    auto& s = b.state();
     auto const k = b.white_to_move() ? 0 : 1;
     return perft_debug(b, k, 0, depth);
 }
 
 auto perft(std::string_view fen, int depth) -> uint64_t {
     board b{fen};
-    auto& s = b.state();
     auto const k = b.white_to_move() ? 0 : 1;
     return perft(b, k, 0, depth);
 }

@@ -104,7 +104,6 @@ namespace chesslib::fen {
 
     auto write(board const& b) -> std::string {
         auto const& pieces = b.pieces;
-        auto const& colors = b.colors;
         auto const& state  = b.state();
 
         std::string fen;
