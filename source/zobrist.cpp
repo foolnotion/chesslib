@@ -10,9 +10,7 @@ namespace chesslib::zobrist {
             if (!coord::valid(i)) { continue; }
             if (b.pieces[i] == piece::none) { continue; }
             auto const [p, c] = b[i];
-            auto const j = coord::rank(i) * 8 + coord::file(i);
-            ASSERT(j < ptable.extent(3));
-            h ^= ptable(static_cast<int>(c), static_cast<int>(p), j);
+            h ^= ptable(static_cast<int>(c), static_cast<int>(p), i);
         }
 
         if (static_cast<u8>(s.castling)) {
