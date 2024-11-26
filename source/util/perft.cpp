@@ -2,6 +2,7 @@
 
 namespace chesslib {
 
+namespace {
 auto move_string(move const m) {
     return fmt::format("{}{}", me::enum_name(static_cast<square>(m.source_square)), me::enum_name(static_cast<square>(m.target_square)));
 };
@@ -47,13 +48,6 @@ inline auto perft_debug(board& b, int const k, int d, int const depth) -> perft_
     return p;
 }
 
-auto perft_debug(std::string_view fen, int depth) -> perft_result {
-    board b{fen};
-    auto& s = b.state();
-    auto const k = b.white_to_move() ? 0 : 1;
-    return perft_debug(b, k, 0, depth);
-}
-
 inline auto perft(board& b, int const k, int d, int const depth) -> u64 {
     b.state().side = static_cast<side_to_move>((d+k) % 2);
     auto count{0UL};
@@ -70,6 +64,14 @@ inline auto perft(board& b, int const k, int d, int const depth) -> u64 {
         mm.undo();
     }
     return count;
+}
+} // namespace
+
+auto perft_debug(std::string_view fen, int depth) -> perft_result {
+    board b{fen};
+    auto& s = b.state();
+    auto const k = b.white_to_move() ? 0 : 1;
+    return perft_debug(b, k, 0, depth);
 }
 
 auto perft(std::string_view fen, int depth) -> uint64_t {
