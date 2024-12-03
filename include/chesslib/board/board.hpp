@@ -32,22 +32,6 @@ struct board_state {
     }
 };
 
-struct move_maker {
-    explicit move_maker(board& b, move m)
-        : board_(b), move_(m) {}
-
-    auto make() -> void;
-    auto undo() -> void;
-    auto check() -> bool;
-    auto captured() const -> piece { return std::get<1>(capture_info_); }
-
-    private:
-    board& board_; // NOLINT
-    move move_;
-    board_state state_;
-    std::tuple<u8, piece, color> capture_info_{square::none, piece::none, color::none};
-};
-
 class board
 {
     using coord = encoding::coord;
@@ -57,7 +41,7 @@ class board
 
     template<piece... Pieces>
     requires (is_sliding_v<Pieces> && ...) || (!is_sliding_v<Pieces> && ...)
-    inline auto attacked_by(auto const& offsets, auto square_idx, auto side) const -> bool {
+    auto attacked_by(auto const& offsets, auto square_idx, auto side) const -> bool {
         if (!coord::valid(square_idx)) { return false; }
         auto const c = static_cast<color>(side);
 
@@ -114,7 +98,7 @@ class board
         }
     }
 
-    inline auto is_attacked(u8 i, side_to_move s) const -> bool
+    auto is_attacked(u8 i, side_to_move s) const -> bool
     {
         // if a piece of the same color is on square i,
         // then return false (cannot attack our own piece)
@@ -131,12 +115,12 @@ class board
                attacked_by<rook, queen>  (rook_offsets, i, s);
     }
 
-    inline auto is_attacked(square sq, side_to_move s) const -> bool
+    auto is_attacked(square sq, side_to_move s) const -> bool
     {
         return is_attacked(me::enum_integer(sq), s);
     }
 
-    inline auto is_king_in_check() const -> bool {
+    auto is_king_in_check() const -> bool {
         auto const [a, b] = coord::file_rank(state_.white_king);
         auto const [c, d] = coord::file_rank(state_.black_king);
         if (std::abs(a-c) <= 1 && std::abs(b-d) <= 1) {
@@ -152,12 +136,17 @@ class board
         std::swap(colors[src], colors[tgt]);
     }
 
-    inline auto operator[](int i) const -> std::tuple<piece, color>
+    auto do_move(u8 src, u8 tgt) {
+        pieces[tgt] = std::exchange(pieces[src], piece::none);
+        colors[tgt] = std::exchange(colors[src], color::none);
+    }
+
+    auto operator[](int i) const -> std::tuple<piece, color>
     {
         return {pieces[i], colors[i]};
     }
 
-    inline auto operator[](square sq) const -> std::tuple<piece, color>
+    auto operator[](square sq) const -> std::tuple<piece, color>
     {
         return (*this)[me::enum_integer(sq)];
     }
@@ -170,13 +159,13 @@ class board
 
     auto side() const -> side_to_move { return state_.side; }
     auto side() -> side_to_move& { return state_.side; }
-    auto side(side_to_move si) -> void { state_.side = si; }
+    auto set_side(side_to_move si) -> void { state_.side = si; }
 
     auto enpassant() const -> square { return state_.enpassant; }
-    auto enpassant(square sq) -> void { state_.enpassant = sq; }
+    auto set_enpassant(square sq) -> void { state_.enpassant = sq; }
 
     auto castling() const -> castling_rights { return state_.castling; }
-    auto castling(castling_rights cs) -> void { state_.castling = cs; }
+    auto set_castling(castling_rights cs) -> void { state_.castling = cs; }
 
     auto white_to_move() const -> bool { return state_.side == side_to_move::white; }
     auto black_to_move() const -> bool { return state_.side == side_to_move::black; }
@@ -186,7 +175,31 @@ class board
 
     // printing functions
     auto print() const -> void;
+
+    // debugging functions
+    static auto diff(board const& a, board const& b) -> void;
 };  // board
+
+
+struct move_maker {
+    explicit move_maker(board& b, move m)
+        : board_{b}, state_{board_.state()}, move_{m} {}
+
+    auto make() -> void;
+    auto undo() -> void;
+    auto check() -> bool;
+    auto captured() const -> piece { return std::get<1>(capture_info_); }
+
+    private:
+    board& board_; // NOLINT
+    board_state state_;
+    move move_;
+    std::tuple<u8, piece, color> capture_info_{square::none, piece::none, color::none};
+
+    inline auto handle_capture() -> void;
+    inline auto update_castling_flags() -> void;
+    inline auto handle_promotion() -> void;
+};
 
 }  // namespace chesslib
 

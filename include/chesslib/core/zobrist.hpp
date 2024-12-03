@@ -14,12 +14,9 @@ namespace chesslib {
 class board; // forward declaration
 
 namespace zobrist {
-// an array of unique hashes of size 781 = 64 x 12 + 1 + 4 + 8
-// 64 squares x 12 pieces (6 white + 6 black)
-// 16 for castling rights (because the castling rights enum is a flag enum: 1111 => 2^4-1)
-//  8 for the enpassant column
-//  1 for the side to move
-
+// generate hashes for each unique feature of the position
+// note that we are allocating more than necessary (128 squares)
+// for the simple reason of simplifying the way we index into this structure
 static constexpr auto n_sides     =   2; // (2 sides)
 static constexpr auto n_pieces    =   6; // (6 piece types)
 static constexpr auto n_squares   = 128; // we are also counting the invalid squares in the 0x88 encoding

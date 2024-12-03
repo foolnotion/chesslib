@@ -18,6 +18,36 @@ auto board::print() const -> void
     }
 }
 
+// board debugging
+auto board::diff(board const& a, board const& b) -> void {
+    for (auto i = 0; i < encoding::length; ++i) {
+        if (a[i] == b[i]) { continue; }
+
+        auto const [p1, c1] = a[i];
+        auto const [p2, c2] = b[i];
+
+        auto const* s1 = piece_symbols[c1 == color::white ? 0 : 1][static_cast<int>(p1)];
+        auto const* s2 = piece_symbols[c2 == color::white ? 0 : 1][static_cast<int>(p2)];
+
+        fmt::print("{}: {} ≠ {}\n", me::enum_name(static_cast<square>(i)), s1, s2);
+    }
+
+    // compare enpassant
+    if (a.enpassant() != b.enpassant()) {
+        fmt::print("{} ≠ {}\n", me::enum_name(a.enpassant()), me::enum_name(b.enpassant()));
+    }
+
+    // compare castling flags
+    if (a.castling() != b.castling()) {
+        fmt::print("{:04b} ≠ {:04b}\n", (u8)a.castling(), (u8)b.castling());
+    }
+
+    // compare side to move
+    if (a.side() != b.side()) {
+        fmt::print("{} ≠ {}\n", me::enum_name(a.side()), me::enum_name(b.side()));
+    }
+}
+
 auto move_maker::make() -> void {
     auto& state = board_.state();
     auto& castling  = state.castling;
@@ -40,9 +70,9 @@ auto move_maker::make() -> void {
     // swap target and destination squares & colors
     if (move_.capture) {
         auto sq = move_.enpassant
-            ? src + (coord::file(src) < coord::file(tgt) ? +1 : -1)
+            ? enpassant + (white_to_move ? coord::so : coord::no)
             : tgt;
-
+        ASSERT(pieces[sq] != piece::none);
         capture_info_ = {sq, pieces[sq], colors[sq] };
 
         if (pieces[sq] == piece::rook) {
@@ -60,18 +90,14 @@ auto move_maker::make() -> void {
         colors[sq] = color::none;
     }
 
-    board_.swap(src, tgt);
+    board_.do_move(src, tgt);
 
     if (move_.promotion) {
         pieces[tgt] = static_cast<piece>(move_.promotion);
     }
 
-
-
     auto const white_no_castling = ~(castling_rights::wk | castling_rights::wq);
     auto const black_no_castling = ~(castling_rights::bk | castling_rights::bq);
-
-    enpassant = square::none;
 
     if (move_.castling) {
         castling &= (white_to_move ? white_no_castling : black_no_castling);
@@ -84,19 +110,12 @@ auto move_maker::make() -> void {
         }
     }
 
+    enpassant = square::none;
     switch (p) {
         case piece::pawn: {
-            // check if enpassant is possible and set the flag
-            auto offsets = white_to_move
-                ? std::array{coord::nn + coord::we, coord::nn + coord::ea}
-                : std::array{coord::ss + coord::we, coord::ss + coord::ea};
-
-            if (std::abs(src - tgt) == coord::nn && std::ranges::any_of(offsets, [&](auto o) {
-                auto j = src + o;
-                if (!coord::valid(j)) { return false; }
-                auto [q, d] = board_[j];
-                return q == piece::pawn && c != d;
-            })) {
+            // check if there's an enemy pawn next to my target square which could capture me en-passant
+            auto check = [&](auto i) { return coord::valid(i) && pieces[i] == piece::pawn && colors[i] != c; };
+            if (std::abs(tgt-src) == coord::nn && (check(tgt-1) || check(tgt+1))) {
                 auto const offset = white_to_move ? coord::no : coord::so;
                 enpassant = static_cast<square>(src + offset);
             }

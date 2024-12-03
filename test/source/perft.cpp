@@ -4,7 +4,7 @@
 #include <fstream>
 #include <ranges>
 
-TEST_CASE("perft", "[library]") {
+TEST_CASE("perft", "[.library]") {
     /* perft test cases, see:
      * https://www.chessprogramming.org/Perft_Results
      * https://oeis.org/A048987

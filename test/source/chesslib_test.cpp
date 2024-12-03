@@ -345,7 +345,6 @@ TEST_CASE("rampart", "[library]")
 
         auto tmp = b;
         auto move_invalid = [&](auto const& m) { return move_maker{b, m}.check(); };
-        // std::erase_if(moves, move_invalid);
         moves.erase(std::remove_if(moves.begin(), moves.end(), move_invalid), moves.end());
         ASSERT(tmp == b);
 
@@ -422,12 +421,37 @@ TEST_CASE("zobrist", "[library]")
     zobrist::hasher hasher{};
 
     auto check_move = [&](auto const m) {
+        // what is the diff between current board and previous board?
+        // how can I use this diff to incrementally update the zobrist hash?
+        auto const src = m.source_square;
+        auto const tgt = m.target_square;
+
+        auto const [p, c] = b[src];
+        auto const i = static_cast<int>(c);
+        auto const j = static_cast<int>(p)-1;
+
         auto h1 = hasher(b);
+        h1 ^= zobrist::hasher::ptable(i, j, src); // taking the piece from its source square
+        h1 ^= zobrist::hasher::ptable(i, j, tgt); // putting the piece on its destination square
+
+        auto const tmp = b; // make a copy of my board
+
         move_maker mm{b, m};
         mm.make();
+
+        board::diff(tmp, b);
+
+        INFO("Check intermediate state (move made, incremental hash update)");
+        REQUIRE(h1 == hasher(b));
+
         mm.undo();
-        auto h2 = hasher(b);
-        REQUIRE(h1 == h2);
+
+        // XOR again to reach previous board hash
+        h1 ^= zobrist::hasher::ptable(i, j, src);
+        h1 ^= zobrist::hasher::ptable(i, j, tgt);
+
+        INFO("Check end state (move made and undone, 2xincremental hash update");
+        REQUIRE(h1 == hasher(b));
     };
 
     SECTION("a2a4") {
