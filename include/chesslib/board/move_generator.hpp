@@ -5,12 +5,12 @@
 #include "chesslib/board/board.hpp"
 
 namespace chesslib {
+using namespace encoding;
 
 namespace helpers {
 } // namespace helpers
 
 struct move_generator {
-    using coord = encoding::coord;
 
     board& b; // NOLINT
 

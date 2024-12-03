@@ -19,6 +19,7 @@ add_library(
     chesslib_chesslib
     source/board.cpp
     source/zobrist.cpp
+    source/eval/evaluation.cpp
     source/util/fen.cpp
     source/util/perft.cpp
 )

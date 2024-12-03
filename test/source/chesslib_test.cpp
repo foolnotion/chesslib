@@ -9,12 +9,11 @@
 
 #include <chesslib/core/types.hpp>
 #include <chesslib/core/zobrist.hpp>
+#include <chesslib/eval/evaluation.hpp>
 
+using namespace chesslib::coord;
 
 namespace chesslib::test {
-
-using encoding::coord;
-
 
 namespace helpers {
 auto print(board const& b, auto&& pred, char const* marker, fmt::color color) {
@@ -428,7 +427,7 @@ TEST_CASE("zobrist", "[library]")
 
         auto const [p, c] = b[src];
         auto const i = static_cast<int>(c);
-        auto const j = static_cast<int>(p)-1;
+        auto const j = static_cast<int>(p);
 
         auto h1 = hasher(b);
         h1 ^= zobrist::hasher::ptable(i, j, src); // taking the piece from its source square

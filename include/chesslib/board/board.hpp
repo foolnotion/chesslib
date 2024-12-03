@@ -15,7 +15,7 @@ using namespace me::bitwise_operators; // NOLINT
 
 namespace chesslib {
 
-using encoding::coord;
+using namespace encoding;
 
 struct board_state {
     side_to_move side{side_to_move::white};
@@ -34,8 +34,6 @@ struct board_state {
 
 class board
 {
-    using coord = encoding::coord;
-
     template<piece P>
     static constexpr bool is_sliding_v = (is<piece::bishop, piece::rook, piece::queen>(P));
 

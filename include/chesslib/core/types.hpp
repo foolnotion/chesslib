@@ -40,7 +40,7 @@ using move_list = gch::small_vector<move, move_list_capacity>;
 
 // pieces
 enum class piece : u8 {
-    none = 0, pawn, knight, bishop, rook, queen, king
+    pawn = 0, knight, bishop, rook, queen, king, none
 };
 
 template<piece... P>
@@ -76,6 +76,18 @@ enum square : u8 {
     none
 };
 
+// valid squares
+constexpr std::array<u8, 64> valid_squares = {
+    a1, b1, c1, d1, e1, f1, g1, h1,
+    a2, b2, c2, d2, e2, f2, g2, h2,
+    a3, b3, c3, d3, e3, f3, g3, h3,
+    a4, b4, c4, d4, e4, f4, g4, h4,
+    a5, b5, c5, d5, e5, f5, g5, h5,
+    a6, b6, c6, d6, e6, f6, g6, h6,
+    a7, b7, c7, d7, e7, f7, g7, h7,
+    a8, b8, c8, d8, e8, f8, g8, h8
+};
+
 // castling rights
 enum class castling_rights : u8 {
     wk = 1U << 0U, // => 0001 white can castle king side
@@ -89,16 +101,15 @@ enum class side_to_move : u8 {
     white = 0, black
 };
 
-
 // ascii pieces for printing
 static constexpr std::array piece_symbols = {
-    std::array{" ", "♙" ,"♘" ,"♗" ,"♖" ,"♕" ,"♔"}, // white
-    std::array{" " ,"♟" ,"♞" ,"♝" ,"♜" ,"♛" ,"♚"}  // black
+    std::array{"♙" ,"♘" ,"♗" ,"♖" ,"♕" ,"♔", " "}, // white
+    std::array{"♟" ,"♞" ,"♝" ,"♜" ,"♛" ,"♚", " "}  // black
 };
 
 static constexpr std::array piece_letters = {
-    std::array{' ', 'P', 'N', 'B', 'R', 'Q', 'K'},
-    std::array{' ', 'p', 'n', 'b', 'r', 'q', 'k'}
+    std::array{'P', 'N', 'B', 'R', 'Q', 'K', ' '},
+    std::array{'p', 'n', 'b', 'r', 'q', 'k', ' '}
 };
 }  // namespace chesslib
 

@@ -19,6 +19,7 @@ include(Catch)
 
 add_executable(chesslib_test
     source/chesslib_test.cpp
+    source/eval.cpp
     source/fen.cpp
     source/perft.cpp
 )

@@ -4,8 +4,9 @@
 #include "chesslib/util/fen.hpp"
 #include "chesslib/board/board.hpp"
 
+using namespace chesslib::encoding;
+
 namespace chesslib::fen {
-    using encoding::coord;
 
     auto read(std::string_view fen) -> board {
         board b;

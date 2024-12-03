@@ -11,8 +11,8 @@ namespace chesslib::zobrist {
             if (b.pieces[k] == piece::none) { continue; }
             auto const [p, c] = b[k];
 
-            auto const i = static_cast<int>(c);   // color index
-            auto const j = static_cast<int>(p)-1; // piece index
+            auto const i = static_cast<int>(c); // color index
+            auto const j = static_cast<int>(p); // piece index
             ASSERT(i < n_sides);
             ASSERT(j < n_pieces);
             ASSERT(k < n_squares);
