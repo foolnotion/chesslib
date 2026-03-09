@@ -19,7 +19,7 @@
             inherit system;
             overlays = [ foolnotion.overlay ];
           };
-          stdenv = pkgs.llvmPackages_19.stdenv;
+          stdenv = pkgs.llvmPackages_20.stdenv;
         in
         rec
         {
@@ -29,7 +29,7 @@
 
             nativeBuildInputs = with pkgs; [
               cmake
-              clang-tools_19
+              clang-tools
               cppcheck
               include-what-you-use
               cmake-language-server
@@ -74,7 +74,7 @@
               libassert
               libdwarf
               magic-enum
-              unordered-dense
+              unordered_dense
               zstd
             ];
           };
