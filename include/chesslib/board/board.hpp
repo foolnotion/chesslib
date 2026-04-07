@@ -11,7 +11,6 @@
 #include "chesslib/util/fen.hpp"
 
 namespace me = magic_enum;
-using namespace me::bitwise_operators; // NOLINT
 
 namespace chesslib {
 
@@ -23,8 +22,8 @@ struct board_state {
     square enpassant{square::none};
     square white_king{square::e1};
     square black_king{square::e8};
-    u8 ply{0};
-    u8 count{0};
+    u8  ply{0};
+    u16 count{1};
 
     auto operator==(board_state const& s) const -> bool {
         return std::tie(side, castling, enpassant, white_king, black_king, ply, count) ==
@@ -46,14 +45,14 @@ class board
         for (auto const i : offsets) {
             if constexpr ((is_sliding_v<Pieces> && ...)) { // sliding pieces
                 for (auto j = square_idx + i; coord::valid(j); j += i) {
-                    auto const p = pieces[j];
+                    auto const p = piece_at(j);
                     if (p == piece::none) { continue; }
-                    if (!(c == colors[j] && is<Pieces...>(p))) { break; }
+                    if (!(c == color_at(j) && is<Pieces...>(p))) { break; }
                     return true;
                 }
             } else { // not sliding
                 if (auto j = square_idx + i; coord::valid(j)) {
-                    if (!(c == colors[j] && is<Pieces...>(pieces[j]))) { continue; }
+                    if (!(c == color_at(j) && is<Pieces...>(piece_at(j)))) { continue; }
                     return true;
                 }
             }
@@ -75,28 +74,28 @@ class board
     board() = default;
 
     explicit board(std::string_view fen) {
-        *this = fen::read(fen);
+        *this = fen::read_or_throw(fen);
     }
 
     auto operator==(board const& b) const -> bool {
-        return state_ == b.state_ && pieces == b.pieces && colors == b.colors;
+        return state_ == b.state_ && pieces_ == b.pieces_ && colors_ == b.colors_;
     }
 
     auto reset() -> void
     {
-        pieces = encoding::default_pieces();
-        colors = encoding::default_colors();
+        pieces_ = encoding::default_pieces();
+        colors_ = encoding::default_colors();
     }
 
     auto clear() -> void
     {
         for (auto i = 0UL; i < encoding::length; ++i) {
-            pieces[i] = piece::none;
-            colors[i] = color::none;
+            pieces_[i] = piece::none;
+            colors_[i] = color::none;
         }
     }
 
-    auto is_attacked(u8 i, side_to_move s) const -> bool
+    auto is_attacked(int i, side_to_move s) const -> bool
     {
         // if a piece of the same color is on square i,
         // then return false (cannot attack our own piece)
@@ -118,30 +117,28 @@ class board
         return is_attacked(me::enum_integer(sq), s);
     }
 
-    auto is_king_in_check() const -> bool {
+    // Is the king of side s currently in check (or in an adjacent-kings position)?
+    auto is_king_in_check(side_to_move s) const -> bool {
         auto const [a, b] = coord::file_rank(state_.white_king);
         auto const [c, d] = coord::file_rank(state_.black_king);
+        // Adjacent kings constitute an illegal position. Returning true here causes
+        // move_maker::check() to reject any move that would bring the kings within
+        // one square of each other — correct behaviour, since such a position can
+        // never arise from legal play.
         if (std::abs(a-c) <= 1 && std::abs(b-d) <= 1) {
             return true;
         }
-        return white_to_move()
+        return s == side_to_move::white
             ? is_attacked(state_.white_king, side_to_move::black)
             : is_attacked(state_.black_king, side_to_move::white);
     }
 
-    auto swap(u8 src, u8 tgt) {
-        std::swap(pieces[src], pieces[tgt]);
-        std::swap(colors[src], colors[tgt]);
-    }
-
-    auto do_move(u8 src, u8 tgt) {
-        pieces[tgt] = std::exchange(pieces[src], piece::none);
-        colors[tgt] = std::exchange(colors[src], color::none);
-    }
+    // Is the side to move's king currently in check?
+    auto is_king_in_check() const -> bool { return is_king_in_check(state_.side); }
 
     auto operator[](int i) const -> std::tuple<piece, color>
     {
-        return {pieces[i], colors[i]};
+        return {pieces_[static_cast<size_t>(i)], colors_[static_cast<size_t>(i)]};
     }
 
     auto operator[](square sq) const -> std::tuple<piece, color>
@@ -149,33 +146,46 @@ class board
         return (*this)[me::enum_integer(sq)];
     }
 
-    auto import_fen(std::string_view fen) -> void { *this = fen::read(fen); }
+    auto piece_at(int sq)    const -> piece  { return pieces_[static_cast<size_t>(sq)]; }
+    auto color_at(int sq)    const -> color  { return colors_[static_cast<size_t>(sq)]; }
+    auto piece_at(square sq) const -> piece  { return piece_at(me::enum_integer(sq)); }
+    auto color_at(square sq) const -> color  { return color_at(me::enum_integer(sq)); }
+
+    auto import_fen(std::string_view fen) -> void { *this = fen::read_or_throw(fen); }
     auto export_fen() const -> std::string { return fen::write(*this); }
 
-    auto state() const -> board_state const& { return state_; }
-    auto state() -> board_state& { return state_; }
-
-    auto side() const -> side_to_move { return state_.side; }
-    auto side() -> side_to_move& { return state_.side; }
-    auto set_side(side_to_move si) -> void { state_.side = si; }
-
-    auto enpassant() const -> square { return state_.enpassant; }
-    auto set_enpassant(square sq) -> void { state_.enpassant = sq; }
-
-    auto castling() const -> castling_rights { return state_.castling; }
-    auto set_castling(castling_rights cs) -> void { state_.castling = cs; }
+    auto state()     const -> board_state const& { return state_; }
+    auto side()      const -> side_to_move  { return state_.side; }
+    auto enpassant() const -> square        { return state_.enpassant; }
+    auto castling()  const -> castling_rights { return state_.castling; }
 
     auto white_to_move() const -> bool { return state_.side == side_to_move::white; }
     auto black_to_move() const -> bool { return state_.side == side_to_move::black; }
 
-    std::array<piece, encoding::length> pieces {encoding::default_pieces()};
-    std::array<color, encoding::length> colors {encoding::default_colors()};
-
     // printing functions
-    auto print() const -> void;
+    auto print(std::string indent = "") const -> void;
 
     // debugging functions
     static auto diff(board const& a, board const& b) -> void;
+
+    private:
+    auto swap(u8 src, u8 tgt) -> void {
+        std::swap(pieces_[src], pieces_[tgt]);
+        std::swap(colors_[src], colors_[tgt]);
+    }
+
+    auto do_move(u8 src, u8 tgt) -> void {
+        pieces_[tgt] = std::exchange(pieces_[src], piece::none);
+        colors_[tgt] = std::exchange(colors_[src], color::none);
+    }
+
+    std::array<piece, encoding::length> pieces_ {encoding::default_pieces()};
+    std::array<color, encoding::length> colors_ {encoding::default_colors()};
+
+    friend struct move_maker;
+    friend struct move_generator;
+    friend auto fen::read(std::string_view fen) -> tl::expected<board, fen::parse_error>;
+    friend auto fen::write(board const& b) -> std::string;
 };  // board
 
 
@@ -189,14 +199,10 @@ struct move_maker {
     auto captured() const -> piece { return std::get<1>(capture_info_); }
 
     private:
-    board& board_; // NOLINT
+    board& board_;
     board_state state_;
     move move_;
     std::tuple<u8, piece, color> capture_info_{square::none, piece::none, color::none};
-
-    inline auto handle_capture() -> void;
-    inline auto update_castling_flags() -> void;
-    inline auto handle_promotion() -> void;
 };
 
 }  // namespace chesslib

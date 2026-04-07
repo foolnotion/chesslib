@@ -1,14 +1,21 @@
+#include <cstdint>
+#include <utility>
+
+#include <libassert/assert.hpp>
+
 #include "chesslib/core/zobrist.hpp"
 #include "chesslib/board/board.hpp"
+#include "chesslib/board/encoding.hpp"
+#include "chesslib/core/types.hpp"
 
 namespace chesslib::zobrist {
     auto hasher::operator()(chesslib::board const& b) const -> uint64_t {
         auto h{0UL};
 
         auto const& s = b.state();
-        for (auto k = 0; k < encoding::length; ++k) {
+        for (auto k = 0; std::cmp_less(k, encoding::length); ++k) {
             if (!coord::valid(k)) { continue; }
-            if (b.pieces[k] == piece::none) { continue; }
+            if (b.piece_at(k) == piece::none) { continue; }
             auto const [p, c] = b[k];
 
             auto const i = static_cast<int>(c); // color index

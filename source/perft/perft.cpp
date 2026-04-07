@@ -1,21 +1,27 @@
+#include <exception>
+#include <locale>
+#include <string_view>
+
+#include <fmt/base.h>
+
 #include <chesslib/util/perft.hpp>
 #include <cxxopts.hpp>
 #include <chrono>
 
-auto run_perft(std::string_view fen, int depth) -> void {
+static auto run_perft(std::string_view fen, int depth) -> void {
     auto start = std::chrono::steady_clock::now();
     auto count = chesslib::perft(fen, depth);
     auto stop  = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count() / 1e6; // NOLINT
+    auto elapsed = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count()) / 1e6;
     auto nps = static_cast<double>(count) / elapsed;
     fmt::print("\nNodes searched: {:L}\nNodes per second: {:L}\nElapsed: {} seconds\n", count, nps, elapsed);
 }
 
-auto run_perft_debug(std::string_view fen, int depth) -> void {
+static auto run_perft_debug(std::string_view fen, int depth) -> void {
     auto start = std::chrono::steady_clock::now();
     auto stats = chesslib::perft_debug(fen, depth);
     auto stop  = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count() / 1e6; // NOLINT
+    auto elapsed = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count()) / 1e6;
     auto nps = static_cast<double>(stats.count) / elapsed;
     // fmt::print("\nCaptures: {:L}, Promotions: {:L}, Enpassant: {:L}, Checks: {:L}, Mates: {:L}\n", stats.capture, stats.promotion, stats.enpassant, stats.check, stats.mate);
     fmt::print("\nCaptures: {:L}, Enpassant: {:L}, Castles: {:L}, Promotions: {:L}, Checks: {:L}, Mates: {:L}\n", stats.capture, stats.enpassant, stats.castle, stats.promotion, stats.check, stats.mate);
@@ -23,6 +29,7 @@ auto run_perft_debug(std::string_view fen, int depth) -> void {
 }
 
 auto main(int argc, char** argv) -> int {
+    try {
     constexpr auto* name = "perft";
     constexpr auto* desc = "PERFT, (PERFormance Test, move path enumeration)\n\
 A debugging function to walk the move generation tree of strictly\n\
@@ -37,7 +44,7 @@ legal moves to count all the leaf nodes of a certain depth\n";
         ("h,help", "Print usage");
 
     auto result = options.parse(argc, argv);
-    if (result.arguments().empty() || result.count("help")) {
+    if (result.arguments().empty() || result.contains("help")) {
         fmt::print("{}\n", options.help());
         return 0;
     }
@@ -51,4 +58,8 @@ legal moves to count all the leaf nodes of a certain depth\n";
     std::locale::global(std::locale("en_US.UTF-8"));
     debug ? run_perft_debug(fen,depth) : run_perft(fen, depth);
     return 0;
+    } catch (std::exception const& e) {
+        fmt::print("Error: {}\n", e.what());
+        return 1;
+    }
 }

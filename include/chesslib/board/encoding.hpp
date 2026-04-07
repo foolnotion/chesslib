@@ -1,5 +1,5 @@
-#ifndef CHESSLIB_DETAIL_0x88_HPP
-#define CHESSLIB_DETAIL_0x88_HPP
+#ifndef CHESSLIB_BOARD_ENCODING_HPP
+#define CHESSLIB_BOARD_ENCODING_HPP
 
 #include "chesslib/core/types.hpp"
 
@@ -100,16 +100,16 @@ namespace coord
     static constexpr u8 f8{square::h1 & 7U};
 
     // methods
-    constexpr auto file(u8 sq) -> i32 { return sq & 7U; }  // NOLINT
-    constexpr auto rank(u8 sq) -> i32 { return sq >> 4U; }
-    constexpr auto file_rank(u8 sq) -> std::tuple<i32, i32> { return { sq & 7U, sq >> 4U }; }
-    constexpr auto same_rank(u8 sq1, u8 sq2) { return rank(sq1) == rank(sq2); }
-    constexpr auto same_file(u8 sq1, u8 sq2) { return file(sq1) == file(sq2); }
-    constexpr auto square_index(u8 rank, u8 file) -> i32 { return (rank << 4U) + file; }
-    constexpr auto valid_index(u8 sq) -> i32 {
+    constexpr auto file(int sq) -> i32 { return sq & 7; }
+    constexpr auto rank(int sq) -> i32 { return sq >> 4; }
+    constexpr auto file_rank(int sq) -> std::tuple<i32, i32> { return { sq & 7, sq >> 4 }; }
+    constexpr auto same_rank(int sq1, int sq2) { return rank(sq1) == rank(sq2); }
+    constexpr auto same_file(int sq1, int sq2) { return file(sq1) == file(sq2); }
+    constexpr auto square_index(int r, int f) -> i32 { return (r << 4) + f; }
+    constexpr auto valid_index(int sq) -> i32 {
         return (rank(sq) * 8) + file(sq);
-    };
-    constexpr auto valid(u8 sq) { return (sq & mask) == 0; }
+    }
+    constexpr auto valid(int sq) { return (static_cast<unsigned>(sq) & mask) == 0; }
 
 }  // namespace coord
 } // namespace chesslib::encoding

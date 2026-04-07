@@ -3,41 +3,42 @@
 
 #include <array>
 #include "chesslib/board/board.hpp"
+#include "chesslib/core/scope_exit.hpp"
 
 namespace chesslib {
 using namespace encoding;
+using namespace me::bitwise_operators; // castling_rights flag operations
 
 namespace helpers {
 } // namespace helpers
 
 struct move_generator {
 
-    board& b; // NOLINT
+    board& b;
 
-    inline auto ready_to_promote(auto i) const {
+    auto ready_to_promote(auto i) const {
         return b.white_to_move() ? (i >= square::a7 && i <= square::h7)
                     : (i >= square::a2 && i <= square::h2);
-    };
+    }
 
-    inline auto is_on_start(auto i) const {
+    auto is_on_start(auto i) const {
         return b.white_to_move() ? (i >= square::a2 && i <= square::h2)
                     : (i >= square::a7 && i <= square::h7);
-    };
+    }
 
     auto moves(auto& m) const {
         auto const side     = b.white_to_move();
         auto const castling = b.castling();
-        auto const& pieces  = b.pieces;
 
         auto const in_check = b.is_king_in_check();
 
         // clear the move list
         m.clear();
 
-        auto add_move = [&](u8 source, u8 target, u8 promotion, u8 capture, u8 double_pawn, u8 enpassant, u8 castling) {
+        auto add_move = [&](int source, int target, u8 promotion, u8 capture, u8 double_pawn, u8 enpassant, u8 castling) -> void {
             m.push_back({
-                .source_square = source,
-                .target_square = target,
+                .source_square = static_cast<u8>(source),
+                .target_square = static_cast<u8>(target),
                 .promotion     = promotion,
                 .capture       = capture,
                 .double_pawn   = double_pawn,
@@ -46,20 +47,20 @@ struct move_generator {
             });
         };
 
-        auto add_promotions = [&add_move](u8 src, u8 tgt, u8 cap, u8 dbl, u8 enp, u8 cst) {
+        auto add_promotions = [&add_move](int src, int tgt, u8 cap, u8 dbl, u8 enp, u8 cst) -> void {
             for (auto x : {piece::knight, piece::bishop, piece::rook, piece::queen}) {
                 add_move(src, tgt, static_cast<u8>(x), cap, dbl, enp, cst);
             }
         };
 
-        auto add_sliding = [&](auto const& offsets, auto i) {
-            auto const c = b.colors[i];
+        auto add_sliding = [&](auto const& offsets, auto i) -> void {
+            auto const c = b.color_at(i);
             for (auto o : offsets) {
-                for (u8 j = i + o; coord::valid(j) ; j += o) {
+                for (int j = i + o; coord::valid(j); j += o) {
                     auto [q, d] = b[j];
                     if (c == d && q != piece::none) { break; }
                     add_move(i, j, 0, (q != piece::none && q != piece::king && d != c), 0, 0, 0);
-                    if (pieces[j] != piece::none) { break; }
+                    if (b.piece_at(j) != piece::none) { break; }
                 }
             }
         };
@@ -83,9 +84,9 @@ struct move_generator {
                     // use scopes to make the code nicer to read
                     // pawn pushes
                     {
-                        u8 j = i + push_once;
+                        int const j = i + push_once;
                         if (coord::valid(j)) {
-                            auto const q = pieces[j];
+                            auto const q = b.piece_at(j);
                             if (q == piece::none) {
                                 if (ready_to_promote(i)) { add_promotions(i, j, 0, 0, 0, 0); }
                                 else                     { add_move(i, j, 0, 0, 0, 0, 0); }
@@ -93,8 +94,8 @@ struct move_generator {
 
                             // check if I can push twice
                             if (is_on_start(i)) {
-                                u8 k = i + push_twice;
-                                if (q == piece::none && pieces[k] == piece::none) {
+                                int const k = i + push_twice;
+                                if (q == piece::none && b.piece_at(k) == piece::none) {
                                     add_move(i, k, 0, 0, 1, 0, 0);
                                 }
                             }
@@ -103,7 +104,7 @@ struct move_generator {
 
                     // pawn captures
                     {
-                        for (u8 j : {i + capture_left, i + capture_right}) {
+                        for (int const j : {i + capture_left, i + capture_right}) {
                             if (!coord::valid(j)) { continue; }
                             auto [q, d] = b[j];
                             // can I capture a piece of the opposite color?
@@ -120,15 +121,15 @@ struct move_generator {
 
                 case piece::knight: {
                     for (auto o : board::knight_offsets) {
-                        u8 const j = i + o;
+                        int const j = i + o;
                         // check if target square is on the board
                         if (!coord::valid(j)) { continue; }
 
                         // get target square piece q and color c
-                        if (c == b.colors[j]) { continue; } // cannot capture own piece
+                        if (c == b.color_at(j)) { continue; } // cannot capture own piece
 
                         // the move is legal, we add it to the list
-                        add_move(i, j, u8{0}, b.pieces[j] != piece::none, u8{0}, u8{0}, u8{0});
+                        add_move(i, j, u8{0}, b.piece_at(j) != piece::none, u8{0}, u8{0}, u8{0});
                     }
                     break;
                 }
@@ -151,7 +152,11 @@ struct move_generator {
                 case piece::king: {
                     // regular king moves + castling
                     // castling rights flags
-                    b.pieces[i] = piece::none; // take the king off the board in order to get all attacks properly
+                    // temporarily remove the king so that is_attacked() sees through it when
+                    // checking castling path squares (e.g. a rook on a8 still attacks g8 even
+                    // with the king on e8 blocking the naive ray walk)
+                    b.pieces_[i] = piece::none;
+                    auto const restore_king = scope_exit{[&]() -> void { b.pieces_[i] = p; }};
                     auto other_side = side ? side_to_move::black : side_to_move::white;
 
                     if (!in_check) {
@@ -176,8 +181,8 @@ struct move_generator {
                                              : std::array{square::f8, square::g8};
 
                             // check if there is something in the way or the square is attacked
-                            if (std::ranges::all_of(path, [&](auto j) {
-                                return pieces[j] == piece::none && !b.is_attacked(j, other_side);
+                            if (std::ranges::all_of(path, [&](auto j) -> bool {
+                                return b.piece_at(j) == piece::none && !b.is_attacked(j, other_side);
                             })) {
                                 auto j = me::enum_integer(path.back());
                                 add_move(i, j, 0, 0, 0, 0, 1);
@@ -187,9 +192,9 @@ struct move_generator {
                             auto path = side ? std::array{square::d1, square::c1}
                                             : std::array{square::d8, square::c8};
 
-                            auto rook_can_move = pieces[side ? square::b1 : square::b8] == piece::none;
-                            if (rook_can_move && std::ranges::all_of(path, [&](auto j) {
-                                return pieces[j] == piece::none && !b.is_attacked(j, other_side);
+                            auto rook_can_move = b.piece_at(side ? square::b1 : square::b8) == piece::none;
+                            if (rook_can_move && std::ranges::all_of(path, [&](auto j) -> bool {
+                                return b.piece_at(j) == piece::none && !b.is_attacked(j, other_side);
                             })) {
                                 auto j = me::enum_integer(path.back());
                                 add_move(i, j, 0, 0, 0, 0, 1);
@@ -199,15 +204,14 @@ struct move_generator {
 
                     // regular king moves
                     for (auto o : board::king_offsets) {
-                        u8 j = i + o;
+                        int const j = i + o;
                         if (!coord::valid(j)) { continue; }
                         auto [q, d] = b[j];
                         if ((q == piece::none || d != c) && !b.is_attacked(j, other_side)) {
-                            add_move(i, j, 0, q != piece::none, 0, 0, 0);
+                            add_move(i, j, 0, static_cast<u8>(q != piece::none), 0, 0, 0);
                         }
                     }
 
-                    b.pieces[i] = p; // put the king back on the board
                     break;
                 }
 
@@ -218,6 +222,31 @@ struct move_generator {
         }
     }
 }; // generator
+
+inline auto legal_moves(board& b) -> move_list {
+    move_list pseudo;
+    move_generator{b}.moves(pseudo);
+
+    move_list legal;
+    for (auto const& m : pseudo) {
+        move_maker mm{b, m};
+        if (!mm.check()) {
+            legal.push_back(m);
+        }
+    }
+    return legal;
+}
+
+// True when the side to move has no legal moves and their king is in check.
+inline auto is_checkmate(board& b) -> bool {
+    return b.is_king_in_check() && legal_moves(b).empty();
+}
+
+// True when the side to move has no legal moves but their king is not in check.
+inline auto is_stalemate(board& b) -> bool {
+    return !b.is_king_in_check() && legal_moves(b).empty();
+}
+
 }  // namespace chesslib
 
 #endif
