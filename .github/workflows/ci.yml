@@ -50,5 +50,5 @@ jobs:
 
       - name: Push to Sourcehut
         run: |
-          git remote add sourcehut https://oauth2:${{ secrets.SOURCEHUT_TOKEN }}@git.sr.ht/~bogdanb/chesslib
+          git remote add sourcehut https://bogdanb:${{ secrets.SOURCEHUT_TOKEN }}@git.sr.ht/~bogdanb/chesslib
           git push sourcehut HEAD:${{ github.ref_name }}
