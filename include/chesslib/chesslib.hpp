@@ -1,23 +1,12 @@
 #ifndef CHESSLIB_CHESSLIB_HPP
 #define CHESSLIB_CHESSLIB_HPP
 
-#include <string>
-
-#include <fmt/core.h>
-
+#include "core/types.hpp"
+#include "core/zobrist.hpp"
 #include "board/encoding.hpp"
+#include "board/board.hpp"
 #include "board/move_generator.hpp"
-
-namespace chesslib {
-
-/**
- * @brief Return the name of this header-only library
- */
-inline auto name() -> std::string
-{
-    return fmt::format("{}", "chesslib");
-}
-
-}  // namespace chesslib
+#include "util/fen.hpp"
+#include "util/uci.hpp"
 
 #endif
