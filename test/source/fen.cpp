@@ -3,6 +3,7 @@
 #include <chesslib/chesslib.hpp>
 #include <nlohmann/json.hpp>
 #include <fmt/ranges.h>
+#include <libassert/assert.hpp>
 
 namespace chesslib::test {
     TEST_CASE("fen parser", "[library]")

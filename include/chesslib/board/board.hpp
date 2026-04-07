@@ -3,10 +3,6 @@
 
 #include <array>
 
-#include <fmt/color.h>
-#include <fmt/core.h>
-#include <libassert/assert.hpp>
-
 #include "encoding.hpp"
 #include "chesslib/util/fen.hpp"
 

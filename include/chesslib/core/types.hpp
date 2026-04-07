@@ -9,9 +9,6 @@
 #include <magic_enum/magic_enum_utility.hpp>
 #include <magic_enum/magic_enum_flags.hpp>
 #include <ankerl/unordered_dense.h>
-#include <fmt/core.h>
-#include <fmt/format.h>
-#include <fmt/ranges.h>
 
 namespace chesslib {
 // signed types

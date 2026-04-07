@@ -1,7 +1,6 @@
 #ifndef CHESSLIB_PERFT_HPP
 #define CHESSLIB_PERFT_HPP
 
-#include <fmt/core.h>
 #include <chesslib/chesslib.hpp>
 
 namespace chesslib {

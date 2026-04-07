@@ -29,6 +29,8 @@ target_link_libraries(chesslib_test
     PRIVATE
     chesslib::chesslib
     Catch2::Catch2WithMain
+    fmt::fmt
+    libassert::assert
     nlohmann_json::nlohmann_json
     nanobench::nanobench
 )

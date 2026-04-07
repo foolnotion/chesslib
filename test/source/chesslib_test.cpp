@@ -5,7 +5,10 @@
 #include <catch2/generators/catch_generators_all.hpp>
 #include <chesslib/chesslib.hpp>
 #include <nlohmann/json.hpp>
+#include <fmt/color.h>
+#include <fmt/core.h>
 #include <fmt/ranges.h>
+#include <libassert/assert.hpp>
 
 #include <chesslib/core/types.hpp>
 #include <chesslib/core/zobrist.hpp>
@@ -437,13 +440,13 @@ TEST_CASE("zobrist", "[library]")
         auto const j = static_cast<int>(p);
 
         auto h1 = hasher(b);
-        h1 ^= zobrist::hasher::ptable(i, j, src); // taking the piece from its source square
-        h1 ^= zobrist::hasher::ptable(i, j, tgt); // putting the piece on its destination square
+        h1 ^= zobrist::hasher::piece(i, j, src); // taking the piece from its source square
+        h1 ^= zobrist::hasher::piece(i, j, tgt); // putting the piece on its destination square
 
         // account for en-passant square changes
         auto const ep_before = b.enpassant();
         if (ep_before != square::none) {
-            h1 ^= zobrist::hasher::etable(coord::file(ep_before));
+            h1 ^= zobrist::hasher::enpassant_file(coord::file(ep_before));
         }
 
         auto const tmp = b; // make a copy of my board
@@ -453,11 +456,11 @@ TEST_CASE("zobrist", "[library]")
 
         // make() now toggles side-to-move, which the hasher reflects via the
         // side constant. Account for it in the incremental update.
-        h1 ^= zobrist::hasher::side;
+        h1 ^= zobrist::hasher::side_to_move();
 
         auto const ep_after = b.enpassant();
         if (ep_after != square::none) {
-            h1 ^= zobrist::hasher::etable(coord::file(ep_after));
+            h1 ^= zobrist::hasher::enpassant_file(coord::file(ep_after));
         }
 
         board::diff(tmp, b);
@@ -468,18 +471,18 @@ TEST_CASE("zobrist", "[library]")
         mm.undo();
 
         // XOR again to reach previous board hash
-        h1 ^= zobrist::hasher::ptable(i, j, src);
-        h1 ^= zobrist::hasher::ptable(i, j, tgt);
+        h1 ^= zobrist::hasher::piece(i, j, src);
+        h1 ^= zobrist::hasher::piece(i, j, tgt);
 
         // reverse the side toggle
-        h1 ^= zobrist::hasher::side;
+        h1 ^= zobrist::hasher::side_to_move();
 
         // reverse the en-passant delta
         if (ep_after != square::none) {
-            h1 ^= zobrist::hasher::etable(coord::file(ep_after));
+            h1 ^= zobrist::hasher::enpassant_file(coord::file(ep_after));
         }
         if (ep_before != square::none) {
-            h1 ^= zobrist::hasher::etable(coord::file(ep_before));
+            h1 ^= zobrist::hasher::enpassant_file(coord::file(ep_before));
         }
 
         INFO("Check end state (move made and undone, 2xincremental hash update");

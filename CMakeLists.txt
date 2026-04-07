@@ -74,13 +74,14 @@ find_package(unordered_dense CONFIG REQUIRED)
 
 target_link_libraries(chesslib_chesslib
     PUBLIC
-    fmt::fmt
     gch::small_vector
-    libassert::assert
     magic_enum::magic_enum
-    std::mdspan
     tl::expected
     unordered_dense::unordered_dense
+    PRIVATE
+    fmt::fmt
+    libassert::assert
+    std::mdspan
 )
 
 target_link_libraries(perft PUBLIC chesslib::chesslib cxxopts::cxxopts)
