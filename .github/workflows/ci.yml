@@ -38,3 +38,21 @@ jobs:
 
       - name: Analyze
         run: nix develop --command cmake --build build
+
+  mirror:
+    name: Mirror to Sourcehut
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to Sourcehut
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SOURCEHUT_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -t ed25519 git.sr.ht >> ~/.ssh/known_hosts
+          git remote add sourcehut git@git.sr.ht:~bogdanb/chesslib.git
+          git push sourcehut HEAD:${{ github.ref_name }}
