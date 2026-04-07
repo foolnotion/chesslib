@@ -1,27 +1,43 @@
 ---
-# Enable ALL the things! Except not really
-# misc-non-private-member-variables-in-classes: the options don't do anything
-# modernize-use-nodiscard: too aggressive, attribute is situationally useful
-Checks: "*,\
-  -google-readability-todo,\
-  -altera-*,\
-  -fuchsia-*,\
-  fuchsia-multiple-inheritance,\
-  -llvm-header-guard,\
-  -llvm-include-order,\
-  -llvmlibc-*,\
-  -modernize-use-nodiscard,\
-  -misc-non-private-member-variables-in-classes,\
-  -misc-no-recursion,\
-  -readability-identifier-length,\
-  -readability-implicit-bool-conversion,\
-  -cppcoreguidelines-non-private-member-variables-in-classes,\
-  -cppcoreguidelines-pro-bounds-constant-array-index"
+# Focused clang-tidy config: high signal / low noise.
+# Strategy: start from nothing (-*), enable specific checks that catch real
+# bugs or enforce modern C++20 idioms.  Style-police checks (magic-numbers,
+# identifier-naming, include-cleaner, trailing-return-type, …) are excluded.
+Checks: "-*,\
+  bugprone-*,\
+  -bugprone-easily-swappable-parameters,\
+  clang-analyzer-*,\
+  -clang-analyzer-optin.core.EnumCastOutOfRange,\
+  performance-*,\
+  modernize-avoid-bind,\
+  modernize-loop-convert,\
+  modernize-redundant-void-arg,\
+  modernize-use-bool-literals,\
+  modernize-use-default-member-init,\
+  modernize-use-emplace,\
+  modernize-use-noexcept,\
+  modernize-use-nullptr,\
+  modernize-use-override,\
+  modernize-use-ranges,\
+  modernize-use-using,\
+  readability-const-return-type,\
+  readability-container-contains,\
+  readability-else-after-return,\
+  readability-qualified-auto,\
+  readability-redundant-member-init,\
+  readability-simplify-boolean-expr,\
+  misc-redundant-expression,\
+  misc-unused-alias-decls,\
+  misc-unused-parameters,\
+  misc-use-internal-linkage,\
+  readability-identifier-naming"
+
+HeaderFilterRegex: '.*/chesslib2/.*'
 WarningsAsErrors: ''
+
 CheckOptions:
   - key: 'bugprone-argument-comment.StrictMode'
     value: 'true'
-# Prefer using enum classes with 2 values for parameters instead of bools
   - key: 'bugprone-argument-comment.CommentBoolLiterals'
     value: 'true'
   - key: 'bugprone-misplaced-widening-cast.CheckImplicitCasts'
@@ -34,23 +50,12 @@ CheckOptions:
     value: 'true'
   - key: 'readability-simplify-boolean-expr.ChainedConditionalAssignment'
     value: 'true'
-  - key: 'readability-uniqueptr-delete-release.PreferResetCall'
-    value: 'true'
-  - key: 'cppcoreguidelines-init-variables.MathHeader'
-    value: '<cmath>'
-  - key: 'cppcoreguidelines-narrowing-conversions.PedanticMode'
-    value: 'true'
   - key: 'readability-else-after-return.WarnOnUnfixable'
     value: 'true'
   - key: 'readability-else-after-return.WarnOnConditionVariables'
     value: 'true'
-  - key: 'readability-inconsistent-declaration-parameter-name.Strict'
-    value: 'true'
   - key: 'readability-qualified-auto.AddConstToQualified'
     value: 'true'
-  - key: 'readability-redundant-access-specifiers.CheckFirstDeclaration'
-    value: 'true'
-# These seem to be the most common identifier styles
   - key: 'readability-identifier-naming.AbstractClassCase'
     value: 'lower_case'
   - key: 'readability-identifier-naming.ClassCase'
