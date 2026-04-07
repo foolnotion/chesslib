@@ -19,9 +19,9 @@ add_library(
     chesslib_chesslib
     source/board.cpp
     source/zobrist.cpp
-    source/eval/evaluation.cpp
     source/util/fen.cpp
     source/util/perft.cpp
+    source/util/uci.cpp
 )
 add_library(chesslib::chesslib ALIAS chesslib_chesslib)
 add_executable(perft source/perft/perft.cpp)
@@ -66,14 +66,11 @@ find_package(cxxopts CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 find_package(libassert CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
+find_package(mdspan CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(small_vector CONFIG REQUIRED)
+find_package(tl-expected CONFIG REQUIRED)
 find_package(unordered_dense CONFIG REQUIRED)
-
-# small_vector is vendored in
-add_subdirectory(thirdparty/small_vector)
-
-# mdspan is vendored in
-add_subdirectory(thirdparty/mdspan)
 
 target_link_libraries(chesslib_chesslib
     PUBLIC
@@ -81,8 +78,8 @@ target_link_libraries(chesslib_chesslib
     gch::small_vector
     libassert::assert
     magic_enum::magic_enum
-    nlohmann_json::nlohmann_json
     std::mdspan
+    tl::expected
     unordered_dense::unordered_dense
 )
 

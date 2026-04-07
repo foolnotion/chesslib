@@ -9,11 +9,22 @@
     foolnotion.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = inputs@{ self, flake-parts, nixpkgs, foolnotion}:
+  outputs =
+    inputs@{
+      self,
+      flake-parts,
+      nixpkgs,
+      foolnotion,
+    }:
     flake-parts.lib.mkFlake { inherit inputs; } {
-      systems = [ "x86_64-linux" "x86_64-darwin" "aarch64-darwin" ];
+      systems = [
+        "x86_64-linux"
+        "x86_64-darwin"
+        "aarch64-darwin"
+      ];
 
-      perSystem = { pkgs, system, ... }:
+      perSystem =
+        { pkgs, system, ... }:
         let
           pkgs = import self.inputs.nixpkgs {
             inherit system;
@@ -21,8 +32,7 @@
           };
           stdenv = pkgs.llvmPackages_20.stdenv;
         in
-        rec
-        {
+        rec {
           devShells.default = stdenv.mkDerivation {
             name = "dev";
             src = ./.;
@@ -40,7 +50,7 @@
               cxxopts
               gdb
               gcc14
-              linuxPackages_latest.perf
+              perf
               valgrind
               hotspot
               hyperfine
@@ -49,6 +59,9 @@
               catch2_3
               cpptrace
               fmt
+              gch-small-vector
+              mdspan
+              nanobench
               libassert
               libdwarf
               magic-enum
@@ -56,6 +69,7 @@
               unordered_dense
               zstd
               gtl
+              tl-expected
             ];
           };
 
@@ -74,6 +88,7 @@
               libassert
               libdwarf
               magic-enum
+              mdspan
               unordered_dense
               zstd
             ];
