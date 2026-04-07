@@ -49,6 +49,10 @@ jobs:
           fetch-depth: 0
 
       - name: Push to Sourcehut
+        env:
+          SOURCEHUT_TOKEN: ${{ secrets.SOURCEHUT_TOKEN }}
         run: |
-          git remote add sourcehut https://bogdanb:${{ secrets.SOURCEHUT_TOKEN }}@git.sr.ht/~bogdanb/chesslib
+          echo "machine git.sr.ht login bogdanb password ${SOURCEHUT_TOKEN}" >> ~/.netrc
+          chmod 600 ~/.netrc
+          git remote add sourcehut https://git.sr.ht/~bogdanb/chesslib
           git push sourcehut HEAD:${{ github.ref_name }}
