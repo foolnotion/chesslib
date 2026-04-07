@@ -60,7 +60,7 @@ struct move_generator {
                     auto [q, d] = b[j];
                     if (c == d && q != piece::none) { break; }
                     add_move(i, j, 0, (q != piece::none && q != piece::king && d != c), 0, 0, 0);
-                    if (b.piece_at(j) != piece::none) { break; }
+                    if (q != piece::none) { break; }
                 }
             }
         };
