@@ -18,7 +18,8 @@ namespace {
 using clock = std::chrono::steady_clock;
 
 auto elapsed_ns(clock::time_point t0) -> double {
-    return static_cast<double>((clock::now() - t0).count());
+    auto dt = std::chrono::duration_cast<std::chrono::nanoseconds>(clock::now() - t0);
+    return static_cast<double>(dt.count());
 }
 
 auto measure_perft_nps(std::string_view fen, int depth) -> double {

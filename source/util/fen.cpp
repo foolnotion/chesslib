@@ -35,15 +35,24 @@ namespace chesslib::fen {
         for (auto field : std::ranges::views::split(fen, ' ')) {
             switch(n++) {
                 case fen_record::piece_placement: {
+                    auto make_err = [&](auto const& f) {
+                        return tl::unexpected(parse_error{
+                            .reason = error::invalid_piece_placement,
+                            .input  = std::string{f.begin(), f.end()}
+                        });
+                    };
                     auto row = static_cast<i32>(square::a8);
                     for (auto line : std::ranges::views::split(field, '/')) {
                         auto sq = row-1;
                         for (auto c : line) {
                             if (std::isdigit(c) != 0) {
-                                sq += c-'0';
+                                auto skip = c - '0';
+                                if (skip < 1 || skip > 8) { return make_err(line); }
+                                sq += skip;
                             }
                             else if (std::isalpha(c) != 0) {
                                 sq += 1;
+                                if (!coord::valid(sq)) { return make_err(line); }
                                 auto col     = std::isupper(c) != 0 ? color::white : color::black;
                                 auto pic     = char2piece(static_cast<char>(std::tolower(c)));
                                 b.pieces_[static_cast<size_t>(sq)] = pic;
@@ -59,6 +68,12 @@ namespace chesslib::fen {
                     break;
                 }
                 case fen_record::active_color: {
+                    if (std::ranges::empty(field)) {
+                        return tl::unexpected(parse_error{
+                            .reason = error::invalid_active_color,
+                            .input  = {}
+                        });
+                    }
                     auto c = field.front();
                     if (c != 'w' && c != 'b') {
                         return tl::unexpected(parse_error{
@@ -91,9 +106,9 @@ namespace chesslib::fen {
                     break;
                 }
                 case fen_record::halfmove_clock: {
-                    auto [ptr, ec] = std::from_chars(
-                        std::to_address(field.begin()), std::to_address(field.end()), state.ply);
-                    if (ec != std::errc{}) {
+                    auto const* end = std::to_address(field.end());
+                    auto [ptr, ec] = std::from_chars(std::to_address(field.begin()), end, state.ply);
+                    if (ec != std::errc{} || ptr != end) {
                         return tl::unexpected(parse_error{
                             .reason = error::invalid_halfmove_clock,
                             .input  = std::string{field.begin(), field.end()}
@@ -102,9 +117,9 @@ namespace chesslib::fen {
                     break;
                 }
                 case fen_record::fullmove_number: {
-                    auto [ptr, ec] = std::from_chars(
-                        std::to_address(field.begin()), std::to_address(field.end()), state.count);
-                    if (ec != std::errc{}) {
+                    auto const* end = std::to_address(field.end());
+                    auto [ptr, ec] = std::from_chars(std::to_address(field.begin()), end, state.count);
+                    if (ec != std::errc{} || ptr != end) {
                         return tl::unexpected(parse_error{
                             .reason = error::invalid_fullmove_number,
                             .input  = std::string{field.begin(), field.end()}

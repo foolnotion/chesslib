@@ -518,8 +518,8 @@ TEST_CASE("zobrist", "[library]")
     // For all remaining sections: verify that after make+undo the full-recomputed
     // hash is identical to the hash before the move.  This covers all the state
     // that hasher::operator() inspects: piece placement, castling rights, and the
-    // en-passant file.  (Side-to-move is NOT toggled by make/undo — that is the
-    // responsibility of the perft driver — so no side XOR delta is needed here.)
+    // en-passant file.  make() toggles side-to-move and undo() restores it, so
+    // the hash after undo() matches the hash before make().
     SECTION("hash round-trip") {
         auto check_round_trip = [](std::string_view pos) {
             board b{pos};

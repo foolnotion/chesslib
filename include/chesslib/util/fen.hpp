@@ -20,6 +20,7 @@ namespace fen {
     };
 
     enum class error : std::uint8_t {
+        invalid_piece_placement, // piece placement field is malformed (bad digit, out-of-bounds square)
         invalid_active_color,    // active color field is not 'w' or 'b'
         invalid_halfmove_clock,  // halfmove clock field is not a valid integer
         invalid_fullmove_number, // fullmove number field is not a valid integer

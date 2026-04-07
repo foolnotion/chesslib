@@ -32,7 +32,7 @@ Checks: "-*,\
   misc-use-internal-linkage,\
   readability-identifier-naming"
 
-HeaderFilterRegex: '.*/chesslib2/.*'
+HeaderFilterRegex: '.*/include/chesslib/.*'
 WarningsAsErrors: ''
 
 CheckOptions:
