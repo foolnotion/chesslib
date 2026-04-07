@@ -155,6 +155,11 @@
     {
       "name": "ci-windows",
       "inherits": ["ci-build", "ci-win64", "dev-mode", "ci-multi-config"]
+    },
+    {
+      "name": "clang-tidy-only",
+      "inherits": ["clang-tidy", "ci-linux"],
+      "binaryDir": "${sourceDir}/build/clang-tidy"
     }
   ]
 }
