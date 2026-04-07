@@ -5,12 +5,15 @@
 #include <cctype>
 #include <cstdint>
 #include <gch/small_vector.hpp>
-#include <magic_enum.hpp>
-#include <magic_enum_utility.hpp>
-#include <magic_enum_flags.hpp>
+#include <magic_enum/magic_enum.hpp>
+#include <magic_enum/magic_enum_utility.hpp>
+#include <magic_enum/magic_enum_flags.hpp>
+#include <ankerl/unordered_dense.h>
+#include <fmt/core.h>
+#include <fmt/format.h>
+#include <fmt/ranges.h>
 
 namespace chesslib {
-
 // signed types
 using i8 = std::int8_t;
 using i16 = std::int16_t;
@@ -22,6 +25,9 @@ using u8  = std::uint8_t;
 using u16 = std::uint16_t;
 using u32 = std::uint32_t;
 using u64 = std::uint64_t;
+
+// hash type (as used by e.g. zobrist hashing)
+using hash = u64;
 
 // use a bit-field struct to encode a chess move
 struct move {
@@ -44,7 +50,7 @@ enum class piece : u8 {
 };
 
 template<piece... P>
-constexpr inline auto is(piece p) { return ((p == P) || ...); }
+constexpr auto is(piece p) { return ((p == P) || ...); }
 
 static constexpr auto char2piece(char c) {
     switch(c) {
@@ -111,7 +117,34 @@ static constexpr std::array piece_letters = {
     std::array{'P', 'N', 'B', 'R', 'Q', 'K', ' '},
     std::array{'p', 'n', 'b', 'r', 'q', 'k', ' '}
 };
-}  // namespace chesslib
+
+template <class Key,
+          class T,
+          class Hash = ankerl::unordered_dense::hash<Key>,
+          class KeyEqual = std::equal_to<Key>,
+          class Allocator = std::allocator<std::pair<Key, T>>>
+using map = ankerl::unordered_dense::map<Key, T, Hash, KeyEqual, Allocator>;
+
+template <class Key,
+          class T,
+          class Hash = ankerl::unordered_dense::hash<Key>,
+          class KeyEqual = std::equal_to<Key>,
+          class Allocator = std::allocator<std::pair<Key, T>>>
+using segmented_map = ankerl::unordered_dense::segmented_map<Key, T, Hash, KeyEqual, Allocator>;
+
+template <class Key,
+          class Hash = ankerl::unordered_dense::hash<Key>,
+          class KeyEqual = std::equal_to<Key>,
+          class Allocator = std::allocator<Key>>
+using set = ankerl::unordered_dense::set<Key, Hash, KeyEqual, Allocator>;
+
+template <class Key,
+          class Hash = ankerl::unordered_dense::hash<Key>,
+          class KeyEqual = std::equal_to<Key>,
+          class Allocator = std::allocator<Key>>
+using segmented_set = ankerl::unordered_dense::segmented_set<Key, Hash, KeyEqual, Allocator>;
+
+} // namespace chesslib
 
 // specializations for the magic_enum library
 template<>

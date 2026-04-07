@@ -23,7 +23,7 @@ static constexpr auto n_squares   = 128; // we are also counting the invalid squ
 static constexpr auto n_castling  =  16; // (the value of the castle flag will be a power of two)
 static constexpr auto n_enpassant =   8; // (eight possible enpassant columns)
 
-static constexpr std::array<uint64_t, n_sides * n_pieces * n_squares + n_castling + n_enpassant> table {
+static constexpr std::array<uint64_t, (n_sides * n_pieces * n_squares) + n_castling + n_enpassant> table {
     16875201712668563961UL, 13547746891514714905UL, 11647770157979990581UL, 7585729829534330556UL, 1172951532468539477UL, 18344580977800557391UL, 13603934006499686435UL, 13556386041930107359UL,
     6572210101922187351UL, 16074344357133026553UL, 8874881945054312099UL, 3454331383034330764UL, 1000402173438771347UL, 28405489529650073UL, 859338426144683141UL, 14524603430995880063UL,
     2465405987137586443UL, 6385126086925219969UL, 16364754167376133095UL, 9895315297412324344UL, 14415732407303815476UL, 9945218083934970942UL, 8599458594004887992UL, 5257006420713889488UL,
