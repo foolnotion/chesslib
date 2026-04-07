@@ -76,21 +76,21 @@ TEST_CASE("perft", "[.library]") {
         },
     };
 
-    auto check = [&](int i) {
+    auto check = [&](size_t i) {
         INFO(fmt::format("fen: {}\n", test_cases[i]));
         auto const& result = test_results[i];
-        for (auto d = 1; d <= result.size(); ++d) {
+        for (size_t d = 1; d <= result.size(); ++d) {
             INFO(fmt::format("position {} depth {}\n", i+1, d));
-            REQUIRE(chesslib::perft_debug(test_cases[i], d) == result[d-1]);
+            REQUIRE(chesslib::perft_debug(test_cases[i], static_cast<int>(d)) == result[d-1]);
         }
     };
 
-    SECTION("position 1") { check(0); }
-    SECTION("position 2") { check(1); }
-    SECTION("position 3") { check(2); }
-    SECTION("position 4") { check(3); }
-    SECTION("position 5") { check(4); }
-    SECTION("position 6") { check(5); }
+    SECTION("position 1") { check(0UL); }
+    SECTION("position 2") { check(1UL); }
+    SECTION("position 3") { check(2UL); }
+    SECTION("position 4") { check(3UL); }
+    SECTION("position 5") { check(4UL); }
+    SECTION("position 6") { check(5UL); }
 
     SECTION("vajolet positions") {
         // from the test suite of the chess engine vajolet:
@@ -105,7 +105,7 @@ TEST_CASE("perft", "[.library]") {
                     fen = sv;
                 } else {
                     INFO(fmt::format("perft({}, {}) == {}\n", fen, i, sv));
-                    REQUIRE(chesslib::perft(fen, i) == std::stoll(sv));
+                    REQUIRE(chesslib::perft(fen, i) == static_cast<uint64_t>(std::stoll(sv)));
                 }
                 ++i;
             }

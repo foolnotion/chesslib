@@ -9,36 +9,12 @@
 
 #include <chesslib/core/types.hpp>
 #include <chesslib/core/zobrist.hpp>
-#include <chesslib/eval/evaluation.hpp>
 
 using namespace chesslib::coord;
 
 namespace chesslib::test {
 
 namespace helpers {
-auto print(board const& b, auto&& pred, char const* marker, fmt::color color) {
-    auto const& pieces = b.pieces;
-    auto const& colors = b.colors;
-    auto constexpr n = coord::nrow;
-    for (auto i = n - 1; i >= 0; --i) {
-        for (auto j = 0; j < n; ++j) {
-            auto const s = coord::square_index(i, j);
-            auto const p = me::enum_integer(pieces[s]);
-            auto const* c = piece_symbols[colors[s] == color::white ? 0 : 1][p];
-            auto fg = fmt::color::white;
-            if (pred(b, s)) {
-                if (c == std::string{" "}) { c = marker; }
-                fg = color;
-            }
-
-            fmt::print(fmt::bg((coord::file(s) + coord::rank(s)) % 2 == 0
-                                    ? fmt::color::dim_gray
-                                    : fmt::color::gray) | fmt::fg(fg), "{} ", c);
-        }
-        fmt::print("\n");
-    }
-}
-
 
 struct perft_result {
     u64 count{0};
@@ -60,6 +36,30 @@ struct perft_result {
     }
 };
 
+template<piece P>
+static constexpr bool is_sliding_v = ((P == piece::bishop) || (P == piece::rook) || (P == piece::queen));
+
+namespace {
+auto print(board const& b, auto&& pred, char const* marker, fmt::color color) {
+    auto constexpr n = coord::nrow;
+    for (auto i = n - 1; i >= 0; --i) {
+        for (auto j = 0; j < n; ++j) {
+            auto const s = coord::square_index(i, j);
+            auto const p = me::enum_integer(b.piece_at(s));
+            auto const* c = piece_symbols[b.color_at(s) == color::white ? 0 : 1][p];
+            auto fg = fmt::color::white;
+            if (pred(b, s)) {
+                if (c == std::string{" "}) { c = marker; }
+                fg = color;
+            }
+
+            fmt::print(fmt::bg((coord::file(s) + coord::rank(s)) % 2 == 0
+                                    ? fmt::color::dim_gray
+                                    : fmt::color::gray) | fmt::fg(fg), "{} ", c);
+        }
+        fmt::print("\n");
+    }
+}
 
 auto format_moves(board const& board, move_list const& moves) -> std::vector<std::string> {
     // group by target square since this changes the notation => Nec3, Nbc3
@@ -76,7 +76,6 @@ auto format_moves(board const& board, move_list const& moves) -> std::vector<std
 
     std::string files = "abcdefgh";
     std::string ranks = "12345678";
-    std::string promotions = "NBRQ";
 
     for (auto const& m : moves) {
         auto src = m.source_square;
@@ -89,7 +88,7 @@ auto format_moves(board const& board, move_list const& moves) -> std::vector<std
 
         if (p == piece::pawn) {
             if (m.capture) {
-                str.push_back(files[coord::file(src)]);
+                str.push_back(files[static_cast<size_t>(coord::file(src))]);
                 str.push_back('x');
             }
             str += me::enum_name(static_cast<square>(tgt));
@@ -114,9 +113,9 @@ auto format_moves(board const& board, move_list const& moves) -> std::vector<std
                 if (std::ranges::count_if(moves_to_tgt, [&](auto const& m) {
                     return coord::same_file(m.source_square, src);
                 }) > 1) {
-                    str.push_back(ranks[coord::rank(m.source_square)]);
+                    str.push_back(ranks[static_cast<size_t>(coord::rank(m.source_square))]);
                 } else {
-                    str.push_back(files[coord::file(m.source_square)]);
+                    str.push_back(files[static_cast<size_t>(coord::file(m.source_square))]);
                 }
             }
             if (m.capture) {
@@ -131,8 +130,7 @@ auto format_moves(board const& board, move_list const& moves) -> std::vector<std
 }
 
 
-template<piece P>
-static constexpr bool is_sliding_v = ((P == piece::bishop) || (P == piece::rook) || (P == piece::queen));
+} // namespace (anonymous)
 } // namespace helpers
 
 TEST_CASE("piece values", "[library]")
@@ -143,6 +141,14 @@ TEST_CASE("piece values", "[library]")
         constexpr auto p = val();
         fmt::print("{}: {}\t{:08b}\n", me::enum_name(p), me::enum_integer(p), me::enum_integer(p));
     });
+
+    REQUIRE(me::enum_integer(piece::pawn)   == 0);
+    REQUIRE(me::enum_integer(piece::knight) == 1);
+    REQUIRE(me::enum_integer(piece::bishop) == 2);
+    REQUIRE(me::enum_integer(piece::rook)   == 3);
+    REQUIRE(me::enum_integer(piece::queen)  == 4);
+    REQUIRE(me::enum_integer(piece::king)   == 5);
+    REQUIRE(me::enum_integer(piece::none)   == 6);
 }
 
 TEST_CASE("sliding", "[library]")
@@ -195,13 +201,13 @@ TEST_CASE("move generator", "[library]")
             gen.moves(moves);
             ankerl::unordered_dense::map<u8, u8> squares;
             for (auto const& m : moves) {
-                auto p = board.pieces[m.source_square];
+                auto p = board.piece_at(m.source_square);
                 if (p != piece) { continue; }
                 squares.insert({static_cast<u8>(m.target_square), static_cast<u8>(m.source_square)});
             }
 
-            auto pred = [&](auto& b, auto s) {
-                return squares.contains(s);
+            auto pred = [&]([[maybe_unused]] auto& b, auto s) {
+                return squares.contains(static_cast<u8>(s));
             };
 
             helpers::print(board, pred, "▢", fmt::color::blue);
@@ -299,6 +305,7 @@ TEST_CASE("parse en-passant", "[library]")
 {
     constexpr auto* fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1";
     chesslib::board board{fen};
+    REQUIRE(board.enpassant() == square::e3);
     board.print();
 }
 
@@ -433,10 +440,25 @@ TEST_CASE("zobrist", "[library]")
         h1 ^= zobrist::hasher::ptable(i, j, src); // taking the piece from its source square
         h1 ^= zobrist::hasher::ptable(i, j, tgt); // putting the piece on its destination square
 
+        // account for en-passant square changes
+        auto const ep_before = b.enpassant();
+        if (ep_before != square::none) {
+            h1 ^= zobrist::hasher::etable(coord::file(ep_before));
+        }
+
         auto const tmp = b; // make a copy of my board
 
         move_maker mm{b, m};
         mm.make();
+
+        // make() now toggles side-to-move, which the hasher reflects via the
+        // side constant. Account for it in the incremental update.
+        h1 ^= zobrist::hasher::side;
+
+        auto const ep_after = b.enpassant();
+        if (ep_after != square::none) {
+            h1 ^= zobrist::hasher::etable(coord::file(ep_after));
+        }
 
         board::diff(tmp, b);
 
@@ -448,6 +470,17 @@ TEST_CASE("zobrist", "[library]")
         // XOR again to reach previous board hash
         h1 ^= zobrist::hasher::ptable(i, j, src);
         h1 ^= zobrist::hasher::ptable(i, j, tgt);
+
+        // reverse the side toggle
+        h1 ^= zobrist::hasher::side;
+
+        // reverse the en-passant delta
+        if (ep_after != square::none) {
+            h1 ^= zobrist::hasher::etable(coord::file(ep_after));
+        }
+        if (ep_before != square::none) {
+            h1 ^= zobrist::hasher::etable(coord::file(ep_before));
+        }
 
         INFO("Check end state (move made and undone, 2xincremental hash update");
         REQUIRE(h1 == hasher(b));
@@ -477,6 +510,236 @@ TEST_CASE("zobrist", "[library]")
             .castling      = 0
         };
         check_move(m);
+    }
+
+    // For all remaining sections: verify that after make+undo the full-recomputed
+    // hash is identical to the hash before the move.  This covers all the state
+    // that hasher::operator() inspects: piece placement, castling rights, and the
+    // en-passant file.  (Side-to-move is NOT toggled by make/undo — that is the
+    // responsibility of the perft driver — so no side XOR delta is needed here.)
+    SECTION("hash round-trip") {
+        auto check_round_trip = [](std::string_view pos) {
+            board b{pos};
+            zobrist::hasher h{};
+            for (auto const& m : legal_moves(b)) {
+                auto const before = h(b);
+                move_maker mm{b, m};
+                mm.make();
+                mm.undo();
+                REQUIRE(h(b) == before);
+            }
+        };
+
+        SECTION("quiet moves - starting position") {
+            check_round_trip("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+        }
+        SECTION("capture") {
+            // white e-pawn can take the d5 pawn
+            check_round_trip("rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2");
+        }
+        SECTION("en-passant capture") {
+            // white d5-pawn can take e.p. on e6; black e5-pawn just double-pushed
+            check_round_trip("rnbqkbnr/pppp1ppp/8/3Pp3/8/8/PPP1PPPP/RNBQKBNR w KQkq e6 0 3");
+        }
+        SECTION("castling") {
+            check_round_trip("r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1");
+            check_round_trip("r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R b KQkq - 0 1");
+        }
+        SECTION("promotion") {
+            check_round_trip("8/P6k/8/8/8/8/8/4K3 w - - 0 1");
+        }
+    }
+
+    SECTION("position uniqueness") {
+        // All 20 positions reachable in one move from the starting position must
+        // hash distinctly (with make() not toggling side they share the same side
+        // flag, so any collision would be a genuine piece-placement collision).
+        board start;
+        zobrist::hasher h{};
+        ankerl::unordered_dense::set<hash> seen;
+        seen.insert(h(start));
+        for (auto const& m : legal_moves(start)) {
+            move_maker mm{start, m};
+            mm.make();
+            auto const [_, inserted] = seen.insert(h(start));
+            REQUIRE(inserted);
+            mm.undo();
+        }
+    }
+}
+
+TEST_CASE("legal_moves count", "[library]")
+{
+    // known perft(1) counts from chessprogramming.org
+    constexpr std::array<std::pair<std::string_view, std::size_t>, 6> cases{{
+        {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",      20},
+        {"r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1", 48},
+        {"8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1",                     14},
+        {"r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1", 6},
+        {"rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",     44},
+        {"r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10", 46},
+    }};
+
+    for (auto const& [fen, expected] : cases) {
+        board b{fen};
+        REQUIRE(legal_moves(b).size() == expected);
+    }
+}
+
+TEST_CASE("make/undo round-trip", "[library]")
+{
+    // For every legal move in a position, make then undo must restore the board exactly.
+    auto round_trip = [](std::string_view fen) {
+        board b{fen};
+        auto moves = legal_moves(b);
+        REQUIRE(!moves.empty());
+        for (auto const& m : moves) {
+            auto orig = b;
+            move_maker mm{b, m};
+            mm.make();
+            mm.undo();
+            REQUIRE(b == orig);
+        }
+    };
+
+    SECTION("quiet moves - starting position") {
+        round_trip("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    }
+    SECTION("captures") {
+        // e4 vs d5: white e-pawn can take d5
+        round_trip("rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2");
+    }
+    SECTION("en-passant capture") {
+        // white pawn on d5, black just played e7-e5; white can take e.p. on e6
+        round_trip("rnbqkbnr/pppp1ppp/8/3Pp3/8/8/PPP1PPPP/RNBQKBNR w KQkq e6 0 3");
+    }
+    SECTION("castling") {
+        round_trip("r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1");
+        round_trip("r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R b KQkq - 0 1");
+    }
+    SECTION("promotion") {
+        // white pawn on a7, can promote (queen, rook, bishop, knight)
+        round_trip("8/P6k/8/8/8/8/8/4K3 w - - 0 1");
+    }
+}
+
+TEST_CASE("fen errors", "[library]")
+{
+    using namespace chesslib::fen;
+
+    SECTION("invalid active color") {
+        auto result = read("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR x KQkq - 0 1");
+        REQUIRE(!result);
+        REQUIRE(result.error().reason == error::invalid_active_color);
+        REQUIRE(result.error().input == "x");
+    }
+
+    SECTION("invalid halfmove clock") {
+        auto result = read("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - abc 1");
+        REQUIRE(!result);
+        REQUIRE(result.error().reason == error::invalid_halfmove_clock);
+        REQUIRE(result.error().input == "abc");
+    }
+
+    SECTION("invalid fullmove number") {
+        auto result = read("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 abc");
+        REQUIRE(!result);
+        REQUIRE(result.error().reason == error::invalid_fullmove_number);
+        REQUIRE(result.error().input == "abc");
+    }
+
+    SECTION("too many fields") {
+        auto result = read("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 extra");
+        REQUIRE(!result);
+        REQUIRE(result.error().reason == error::too_many_fields);
+    }
+
+    SECTION("read_or_throw throws on error") {
+        REQUIRE_THROWS_AS(
+            read_or_throw("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR x - - 0 1"),
+            std::runtime_error
+        );
+    }
+}
+
+TEST_CASE("checkmate and stalemate", "[library]")
+{
+    SECTION("checkmate - fool's mate") {
+        // After 1.f3 e5 2.g4 Qh4# white is checkmated
+        board b{"rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3"};
+        REQUIRE(is_checkmate(b));
+        REQUIRE(!is_stalemate(b));
+    }
+
+    SECTION("stalemate") {
+        // Black king a8, white queen c7, white king b6 — black to move, stalemate
+        board b{"k7/2Q5/1K6/8/8/8/8/8 b - - 0 1"};
+        REQUIRE(is_stalemate(b));
+        REQUIRE(!is_checkmate(b));
+    }
+
+    SECTION("neither - starting position") {
+        board b;
+        REQUIRE(!is_checkmate(b));
+        REQUIRE(!is_stalemate(b));
+    }
+}
+
+TEST_CASE("uci", "[library]")
+{
+    SECTION("to_string") {
+        move m{.source_square = square::e2, .target_square = square::e4,
+               .promotion = 0, .capture = 0, .double_pawn = 1, .enpassant = 0, .castling = 0};
+        REQUIRE(uci::to_string(m) == "e2e4");
+
+        // Promotion to queen
+        move q{.source_square = square::a7, .target_square = square::a8,
+               .promotion = static_cast<u8>(piece::queen),
+               .capture = 0, .double_pawn = 0, .enpassant = 0, .castling = 0};
+        REQUIRE(uci::to_string(q) == "a7a8q");
+
+        // Knight promotion
+        move n{.source_square = square::h7, .target_square = square::h8,
+               .promotion = static_cast<u8>(piece::knight),
+               .capture = 0, .double_pawn = 0, .enpassant = 0, .castling = 0};
+        REQUIRE(uci::to_string(n) == "h7h8n");
+    }
+
+    SECTION("from_string - legal moves") {
+        board b;
+        auto e2e4 = uci::from_string(b, "e2e4");
+        REQUIRE(e2e4.has_value());
+        REQUIRE(e2e4->double_pawn == 1);
+        REQUIRE(e2e4->capture == 0);
+
+        auto g1f3 = uci::from_string(b, "g1f3");
+        REQUIRE(g1f3.has_value());
+        REQUIRE(g1f3->capture == 0);
+    }
+
+    SECTION("from_string - illegal move") {
+        board b;
+        REQUIRE(!uci::from_string(b, "e2e5").has_value()); // pawn can't jump 3 squares
+        REQUIRE(!uci::from_string(b, "e1e2").has_value()); // king blocked
+    }
+
+    SECTION("from_string - malformed string") {
+        board b;
+        REQUIRE(!uci::from_string(b, "xyz").has_value());
+        REQUIRE(!uci::from_string(b, "").has_value());
+        REQUIRE(!uci::from_string(b, "e2e4e5x").has_value());
+    }
+
+    SECTION("round-trip - all starting position moves") {
+        board b;
+        for (auto const& m : legal_moves(b)) {
+            auto const s = uci::to_string(m);
+            auto const result = uci::from_string(b, s);
+            REQUIRE(result.has_value());
+            REQUIRE(result->source_square == m.source_square);
+            REQUIRE(result->target_square == m.target_square);
+            REQUIRE(result->promotion    == m.promotion);
+        }
     }
 }
 
