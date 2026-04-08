@@ -167,29 +167,29 @@ TEST_CASE("sliding", "[library]")
 TEST_CASE("fen export", "[library]")
 {
     constexpr std::array test_cases = {
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w",
-        "3rr3/1p1kbQ2/p1p1n3/q2p1Bp1/3P4/2N1P1P1/PP4P1/4RRK1 w",
-        "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w",
-        "8/7p/8/7k/2K1N3/6Q1/5B2/8 w",
-        "8/8/8/8/3K4/8/8/8 w",
-        "5rr1/8/8/8/8/8/q3PP2/R3K2R w",
-        "5rr1/8/8/8/8/5p2/q3PP2/R3K2R w",
-        "8/8/2r3n1/8/4B3/5N2/2R3P1/8 w",
-        "8/8/2r3n1/8/4B3/5n2/2q3p1/8 w",
-        "8/8/2r3n1/8/4B3/5n2/2q3p1/8 b",
-        "5R2/k5r1/P2p4/1K1Np3/1P2P1p1/8/8/1r6 w",
-        "5R2/k5r1/P2p4/1K1Np3/1P2P1p1/8/8/1r6 b",
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "3rr3/1p1kbQ2/p1p1n3/q2p1Bp1/3P4/2N1P1P1/PP4P1/4RRK1 w - - 0 1",
+        "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
+        "8/7p/8/7k/2K1N3/6Q1/5B2/8 w - - 0 1",
+        "8/8/8/8/3K4/8/8/8 w - - 0 1",
+        "5rr1/8/8/8/8/8/q3PP2/R3K2R w - - 0 1",
+        "5rr1/8/8/8/8/5p2/q3PP2/R3K2R w - - 0 1",
+        "8/8/2r3n1/8/4B3/5N2/2R3P1/8 w - - 0 1",
+        "8/8/2r3n1/8/4B3/5n2/2q3p1/8 w - - 0 1",
+        "8/8/2r3n1/8/4B3/5n2/2q3p1/8 b - - 0 1",
+        "5R2/k5r1/P2p4/1K1Np3/1P2P1p1/8/8/1r6 w - - 0 1",
+        "5R2/k5r1/P2p4/1K1Np3/1P2P1p1/8/8/1r6 b - - 0 1",
         "8/4k3/8/8/8/8/r6r/4K3 w - - 0 1",
         "8/4k3/8/8/8/8/r6r/4K3 b - - 0 1",
-        "8/8/8/8/8/8/8/4K2R",
-        "8/8/8/3K4/8/4k3/8/8 w",
-        "8/8/8/3K4/8/4k3/8/8 b",
+        "8/8/8/8/8/8/8/4K2R w K - 0 1",
+        "8/8/8/3K4/8/4k3/8/8 w - - 0 1",
+        "8/8/8/3K4/8/4k3/8/8 b - - 0 1",
         "8/4k3/8/8/8/8/r6r/R3K2R w KQ - 0 1"
     };
-    CHECK(board{}.export_fen().substr(0, std::strlen(test_cases.front())) == test_cases.front());
+    CHECK(board{}.export_fen() == test_cases.front());
 
     auto const* fen = GENERATE_REF(from_range(test_cases));
-    CHECK(fen == board{fen}.export_fen().substr(0, std::strlen(fen)));
+    CHECK(fen == board{fen}.export_fen());
 }
 
 TEST_CASE("move generator", "[library]")
@@ -221,7 +221,7 @@ TEST_CASE("move generator", "[library]")
     SECTION("pawn moves")
     {
         constexpr std::array cases = {
-            "8/8/8/8/3pP3/8/8/8 b e3"
+            "8/8/8/8/3pP3/8/8/8 b - e3 0 1"
         };
 
         check_test_cases(cases, piece::pawn);
@@ -230,7 +230,7 @@ TEST_CASE("move generator", "[library]")
     SECTION("knight moves")
     {
         constexpr std::array cases = {
-            "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR"
+            "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2"
         };
         check_test_cases(cases, piece::knight);
     }
@@ -238,9 +238,9 @@ TEST_CASE("move generator", "[library]")
     SECTION("bishop moves")
     {
         constexpr std::array cases = {
-            "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR",
-            "8/8/8/3B4/8/8/8/8",
-            "P5P1/8/8/3B4/8/5P2/P7/8",
+            "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
+            "8/8/8/3B4/8/8/8/8 w - - 0 1",
+            "P5P1/8/8/3B4/8/5P2/P7/8 w - - 0 1",
         };
         check_test_cases(cases, piece::bishop);
     }
@@ -248,7 +248,7 @@ TEST_CASE("move generator", "[library]")
     SECTION("rook moves")
     {
         constexpr std::array cases = {
-            "8/8/8/3R4/8/8/8/8",
+            "8/8/8/3R4/8/8/8/8 w - - 0 1",
             "8/4k3/8/8/8/8/r6r/R3K2R w KQ - 0 1"
         };
         check_test_cases(cases, piece::rook);
@@ -257,9 +257,9 @@ TEST_CASE("move generator", "[library]")
     SECTION("queen moves")
     {
         constexpr std::array cases = {
-            "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR",
-            "8/8/8/3Q4/8/8/8/8",
-            "3P4/1p3P2/8/P2Q2p1/8/1p3P2/3p4/8"
+            "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
+            "8/8/8/3Q4/8/8/8/8 w - - 0 1",
+            "3P4/1p3P2/8/P2Q2p1/8/1p3P2/3p4/8 w - - 0 1"
         };
         check_test_cases(cases, piece::queen);
     }
@@ -267,9 +267,9 @@ TEST_CASE("move generator", "[library]")
     SECTION("king moves")
     {
         constexpr std::array cases = {
-            "8/8/8/8/8/8/8/4K2R",
-            "8/8/8/3K4/8/4k3/8/8 w",
-            "8/8/8/3K4/8/4k3/8/8 b",
+            "8/8/8/8/8/8/8/4K2R w K - 0 1",
+            "8/8/8/3K4/8/4k3/8/8 w - - 0 1",
+            "8/8/8/3K4/8/4k3/8/8 b - - 0 1",
             "8/4k3/8/8/8/8/r6r/R3K2R w KQ - 0 1"
         };
         check_test_cases(cases, piece::king);
@@ -281,17 +281,17 @@ TEST_CASE("attacked squares", "[library]")
     auto attacked = [](auto& b, auto s) { return b.is_attacked(s, b.side()); };
 
     constexpr std::array test_cases = {
-        "3rr3/1p1kbQ2/p1p1n3/q2p1Bp1/3P4/2N1P1P1/PP4P1/4RRK1 w",
-        "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w",
-        "8/7p/8/7k/2K1N3/6Q1/5B2/8 w",
-        "8/8/8/8/3K4/8/8/8 w",
-        "5rr1/8/8/8/8/8/q3PP2/R3K2R w",
-        "5rr1/8/8/8/8/5p2/q3PP2/R3K2R w",
-        "8/8/2r3n1/8/4B3/5N2/2R3P1/8 w",
-        "8/8/2r3n1/8/4B3/5n2/2q3p1/8 w",
-        "8/8/2r3n1/8/4B3/5n2/2q3p1/8 b",
-        "5R2/k5r1/P2p4/1K1Np3/1P2P1p1/8/8/1r6 w",
-        "5R2/k5r1/P2p4/1K1Np3/1P2P1p1/8/8/1r6 b",
+        "3rr3/1p1kbQ2/p1p1n3/q2p1Bp1/3P4/2N1P1P1/PP4P1/4RRK1 w - - 0 1",
+        "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
+        "8/7p/8/7k/2K1N3/6Q1/5B2/8 w - - 0 1",
+        "8/8/8/8/3K4/8/8/8 w - - 0 1",
+        "5rr1/8/8/8/8/8/q3PP2/R3K2R w - - 0 1",
+        "5rr1/8/8/8/8/5p2/q3PP2/R3K2R w - - 0 1",
+        "8/8/2r3n1/8/4B3/5N2/2R3P1/8 w - - 0 1",
+        "8/8/2r3n1/8/4B3/5n2/2q3p1/8 w - - 0 1",
+        "8/8/2r3n1/8/4B3/5n2/2q3p1/8 b - - 0 1",
+        "5R2/k5r1/P2p4/1K1Np3/1P2P1p1/8/8/1r6 w - - 0 1",
+        "5R2/k5r1/P2p4/1K1Np3/1P2P1p1/8/8/1r6 b - - 0 1",
         "8/4k3/8/8/8/8/r6r/4K3 w - - 0 1",
         "8/4k3/8/8/8/8/r6r/4K3 b - - 0 1"
     };
@@ -425,7 +425,7 @@ TEST_CASE("rampart", "[library]")
 
 TEST_CASE("zobrist", "[library]")
 {
-    auto const* fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w";
+    auto const* fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     chesslib::board b{fen};
     zobrist::hasher hasher{};
 
@@ -649,6 +649,19 @@ TEST_CASE("fen errors", "[library]")
         REQUIRE(!result);
         REQUIRE(result.error().reason == error::invalid_fullmove_number);
         REQUIRE(result.error().input == "abc");
+    }
+
+    SECTION("invalid en-passant target") {
+        auto result = read("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq z9 0 1");
+        REQUIRE(!result);
+        REQUIRE(result.error().reason == error::invalid_enpassant_target);
+        REQUIRE(result.error().input == "z9");
+    }
+
+    SECTION("too few fields") {
+        auto result = read("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -");
+        REQUIRE(!result);
+        REQUIRE(result.error().reason == error::too_few_fields);
     }
 
     SECTION("too many fields") {

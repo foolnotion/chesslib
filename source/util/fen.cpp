@@ -99,8 +99,15 @@ namespace chesslib::fen {
                     break;
                 }
                 case fen_record::en_passant_target: {
-                    auto res = me::enum_cast<square>(std::string_view{field.begin(), field.end()});
-                    if (res) {
+                    auto const sv = std::string_view{field.begin(), field.end()};
+                    if (sv != "-") {
+                        auto res = me::enum_cast<square>(sv);
+                        if (!res) {
+                            return tl::unexpected(parse_error{
+                                .reason = error::invalid_enpassant_target,
+                                .input  = std::string{sv}
+                            });
+                        }
                         state.enpassant = res.value();
                     }
                     break;
@@ -134,6 +141,12 @@ namespace chesslib::fen {
                     });
                 }
             }
+        }
+        if (n < fen_record::num_fields) {
+            return tl::unexpected(parse_error{
+                .reason = error::too_few_fields,
+                .input  = std::string{fen}
+            });
         }
         return b;
     }

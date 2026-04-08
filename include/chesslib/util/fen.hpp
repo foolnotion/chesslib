@@ -16,15 +16,18 @@ namespace fen {
         castling_availability, // castling flags ("KQkq" or "-" if neither side can castle)
         en_passant_target,     // square over which a pawn has just passed while moving two squares, or "-" for none
         halfmove_clock,        // number of halfmoves since the last capture or pawn advance, used for the fifty-move rule
-        fullmove_number        // the number of full moves, it starts at 1 and is incremented after black's move
+        fullmove_number,       // the number of full moves, it starts at 1 and is incremented after black's move
+        num_fields             // total number of fields in a well-formed FEN string
     };
 
     enum class error : std::uint8_t {
-        invalid_piece_placement, // piece placement field is malformed (bad digit, out-of-bounds square)
-        invalid_active_color,    // active color field is not 'w' or 'b'
-        invalid_halfmove_clock,  // halfmove clock field is not a valid integer
-        invalid_fullmove_number, // fullmove number field is not a valid integer
-        too_many_fields,         // more than 6 space-separated fields
+        invalid_piece_placement,  // piece placement field is malformed (bad digit, out-of-bounds square)
+        invalid_active_color,     // active color field is not 'w' or 'b'
+        invalid_enpassant_target, // en-passant field is neither "-" nor a valid square name
+        invalid_halfmove_clock,   // halfmove clock field is not a valid integer
+        invalid_fullmove_number,  // fullmove number field is not a valid integer
+        too_few_fields,           // fewer than 6 space-separated fields
+        too_many_fields,          // more than 6 space-separated fields
     };
 
     struct parse_error {
