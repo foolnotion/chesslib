@@ -8,7 +8,7 @@ namespace chesslib {
 template<typename F>
 struct scope_exit {
     explicit scope_exit(F f) : f_{std::move(f)} {}
-    ~scope_exit() { f_(); }
+    ~scope_exit() noexcept { f_(); }
     scope_exit(scope_exit&&) = delete;
     scope_exit(scope_exit const&) = delete;
     auto operator=(scope_exit&&) -> scope_exit& = delete;
