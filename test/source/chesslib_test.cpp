@@ -746,4 +746,242 @@ TEST_CASE("uci", "[library]")
     }
 }
 
+TEST_CASE("san", "[library]")
+{
+    SECTION("to_string - quiet pawn push") {
+        board b;
+        auto m = uci::from_string(b, "e2e4").value();
+        REQUIRE(san::to_string(b, m) == "e4");
+    }
+
+    SECTION("to_string - knight move") {
+        board b;
+        auto m = uci::from_string(b, "g1f3").value();
+        REQUIRE(san::to_string(b, m) == "Nf3");
+    }
+
+    SECTION("to_string - pawn capture") {
+        // after 1.e4 d5, exd5 is a pawn capture
+        board b{"rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2"};
+        auto m = uci::from_string(b, "e4d5").value();
+        REQUIRE(san::to_string(b, m) == "exd5");
+    }
+
+    SECTION("to_string - en passant") {
+        // white pawn on e5, black pawn just pushed d7-d5: en passant exd6
+        board b{"rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 1"};
+        auto m = uci::from_string(b, "e5d6").value();
+        REQUIRE(san::to_string(b, m) == "exd6");
+    }
+
+    SECTION("to_string - promotion") {
+        board b{"8/P6k/8/8/8/8/8/4K3 w - - 0 1"};
+        auto m = uci::from_string(b, "a7a8q").value();
+        REQUIRE(san::to_string(b, m) == "a8=Q");
+    }
+
+    SECTION("to_string - promotion with capture") {
+        board b{"1r6/P6k/8/8/8/8/8/4K3 w - - 0 1"};
+        auto m = uci::from_string(b, "a7b8q").value();
+        REQUIRE(san::to_string(b, m) == "axb8=Q");
+    }
+
+    SECTION("to_string - kingside castle") {
+        board b{"r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1"};
+        auto m = uci::from_string(b, "e1g1").value();
+        REQUIRE(san::to_string(b, m) == "O-O");
+    }
+
+    SECTION("to_string - queenside castle") {
+        board b{"r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1"};
+        auto m = uci::from_string(b, "e1c1").value();
+        REQUIRE(san::to_string(b, m) == "O-O-O");
+    }
+
+    SECTION("to_string - check") {
+        // Bxf7+ after 1.e4 e5 2.Bc4: bishop captures on f7, checking the king on e8
+        board b{"rnbqkbnr/pppp1ppp/8/4p3/2B1P3/8/PPPP1PPP/RNBQK1NR w KQkq - 0 1"};
+        auto m = uci::from_string(b, "c4f7").value();
+        REQUIRE(san::to_string(b, m) == "Bxf7+");
+    }
+
+    SECTION("to_string - checkmate") {
+        // Scholar's mate: Qxf7#
+        board b{"r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4"};
+        auto m = uci::from_string(b, "h5f7").value();
+        REQUIRE(san::to_string(b, m) == "Qxf7#");
+    }
+
+    SECTION("to_string - disambiguation by file") {
+        // King on e4 so both rooks (a1, h1) can reach d1 unobstructed
+        board b{"4k3/8/8/8/4K3/8/8/R6R w - - 0 1"};
+        auto ra = uci::from_string(b, "a1d1").value();
+        auto rh = uci::from_string(b, "h1d1").value();
+        REQUIRE(san::to_string(b, ra) == "Rad1");
+        REQUIRE(san::to_string(b, rh) == "Rhd1");
+    }
+
+    SECTION("to_string - disambiguation by rank") {
+        // Two rooks on a-file (a5, a3); target a4 sits between them
+        board b{"4k3/8/8/R7/8/R7/8/4K3 w - - 0 1"};
+        auto r5 = uci::from_string(b, "a5a4").value();
+        auto r3 = uci::from_string(b, "a3a4").value();
+        REQUIRE(san::to_string(b, r5) == "R5a4");
+        REQUIRE(san::to_string(b, r3) == "R3a4");
+    }
+
+    SECTION("from_string - quiet pawn push") {
+        board b;
+        auto result = san::from_string(b, "e4");
+        REQUIRE(result.has_value());
+        REQUIRE(result->source_square == square::e2);
+        REQUIRE(result->target_square == square::e4);
+        REQUIRE(result->double_pawn == 1);
+    }
+
+    SECTION("from_string - knight move") {
+        board b;
+        auto result = san::from_string(b, "Nf3");
+        REQUIRE(result.has_value());
+        REQUIRE(result->source_square == square::g1);
+        REQUIRE(result->target_square == square::f3);
+    }
+
+    SECTION("from_string - strips check/mate suffix") {
+        board b{"rnbqkbnr/pppp1ppp/8/4p3/2B1P3/8/PPPP1PPP/RNBQK1NR w KQkq - 0 1"};
+        REQUIRE(san::from_string(b, "Qh5+").has_value());
+        REQUIRE(san::from_string(b, "Qh5").has_value());
+    }
+
+    SECTION("from_string - castling") {
+        board b{"r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1"};
+        auto ks = san::from_string(b, "O-O");
+        auto qs = san::from_string(b, "O-O-O");
+        REQUIRE(ks.has_value());
+        REQUIRE(qs.has_value());
+        REQUIRE(ks->target_square == square::g1);
+        REQUIRE(qs->target_square == square::c1);
+    }
+
+    SECTION("from_string - promotion") {
+        board b{"8/P6k/8/8/8/8/8/4K3 w - - 0 1"};
+        auto result = san::from_string(b, "a8=Q");
+        REQUIRE(result.has_value());
+        REQUIRE(result->promotion == static_cast<u8>(piece::queen));
+        // also accept without =
+        REQUIRE(san::from_string(b, "a8Q").has_value());
+    }
+
+    SECTION("from_string - disambiguation") {
+        board b{"4k3/8/8/8/4K3/8/8/R6R w - - 0 1"};
+        auto ra = san::from_string(b, "Rad1");
+        auto rh = san::from_string(b, "Rhd1");
+        REQUIRE(ra.has_value());
+        REQUIRE(rh.has_value());
+        REQUIRE(ra->source_square == square::a1);
+        REQUIRE(rh->source_square == square::h1);
+    }
+
+    SECTION("from_string - errors") {
+        board b;
+        REQUIRE(san::from_string(b, "").error()   == san::error::invalid_syntax);
+        REQUIRE(san::from_string(b, "e9").error()  == san::error::invalid_syntax);
+        REQUIRE(san::from_string(b, "e5").error()  == san::error::no_matching_move);
+        REQUIRE(san::from_string(b, "Rd1").error() == san::error::no_matching_move);
+    }
+
+    SECTION("round-trip - all legal moves from starting position") {
+        board b;
+        for (auto const& m : legal_moves(b)) {
+            auto const s      = san::to_string(b, m);
+            auto const result = san::from_string(b, s);
+            REQUIRE(result.has_value());
+            REQUIRE(result->source_square == m.source_square);
+            REQUIRE(result->target_square == m.target_square);
+            REQUIRE(result->promotion     == m.promotion);
+        }
+    }
+
+    SECTION("round-trip - position with promotions and castling") {
+        board b{"r3k2r/pP4pp/8/8/8/8/PP4PP/R3K2R w KQkq - 0 1"};
+        for (auto const& m : legal_moves(b)) {
+            auto const s      = san::to_string(b, m);
+            auto const result = san::from_string(b, s);
+            REQUIRE(result.has_value());
+            REQUIRE(result->source_square == m.source_square);
+            REQUIRE(result->target_square == m.target_square);
+            REQUIRE(result->promotion     == m.promotion);
+        }
+    }
+}
+
+TEST_CASE("move codec", "[library]")
+{
+    using namespace codec;
+
+    auto roundtrip = [](move m) {
+        auto const decoded = decode(encode(m));
+        REQUIRE(decoded.source_square == m.source_square);
+        REQUIRE(decoded.target_square == m.target_square);
+        REQUIRE(decoded.promotion     == m.promotion);
+        REQUIRE(decoded.capture       == m.capture);
+        REQUIRE(decoded.double_pawn   == m.double_pawn);
+        REQUIRE(decoded.enpassant     == m.enpassant);
+        REQUIRE(decoded.castling      == m.castling);
+    };
+
+    SECTION("quiet move") {
+        roundtrip(move{.source_square = square::e2, .target_square = square::e3,
+                       .promotion = 0, .capture = 0, .double_pawn = 0, .enpassant = 0, .castling = 0});
+    }
+
+    SECTION("double pawn push") {
+        roundtrip(move{.source_square = square::e2, .target_square = square::e4,
+                       .promotion = 0, .capture = 0, .double_pawn = 1, .enpassant = 0, .castling = 0});
+    }
+
+    SECTION("capture") {
+        roundtrip(move{.source_square = square::d4, .target_square = square::e5,
+                       .promotion = 0, .capture = 1, .double_pawn = 0, .enpassant = 0, .castling = 0});
+    }
+
+    SECTION("en passant") {
+        roundtrip(move{.source_square = square::e5, .target_square = square::d6,
+                       .promotion = 0, .capture = 1, .double_pawn = 0, .enpassant = 1, .castling = 0});
+    }
+
+    SECTION("kingside castle") {
+        roundtrip(move{.source_square = square::e1, .target_square = square::g1,
+                       .promotion = 0, .capture = 0, .double_pawn = 0, .enpassant = 0, .castling = 1});
+    }
+
+    SECTION("queenside castle") {
+        roundtrip(move{.source_square = square::e1, .target_square = square::c1,
+                       .promotion = 0, .capture = 0, .double_pawn = 0, .enpassant = 0, .castling = 1});
+    }
+
+    SECTION("promotions (quiet)") {
+        for (auto p : {piece::knight, piece::bishop, piece::rook, piece::queen}) {
+            roundtrip(move{.source_square = square::a7, .target_square = square::a8,
+                           .promotion = static_cast<u8>(p),
+                           .capture = 0, .double_pawn = 0, .enpassant = 0, .castling = 0});
+        }
+    }
+
+    SECTION("promotions (capture)") {
+        for (auto p : {piece::knight, piece::bishop, piece::rook, piece::queen}) {
+            roundtrip(move{.source_square = square::a7, .target_square = square::b8,
+                           .promotion = static_cast<u8>(p),
+                           .capture = 1, .double_pawn = 0, .enpassant = 0, .castling = 0});
+        }
+    }
+
+    SECTION("round-trip - all legal moves from starting position") {
+        board b;
+        for (auto const& m : legal_moves(b)) {
+            roundtrip(m);
+        }
+    }
+}
+
 } // namespace chesslib::test

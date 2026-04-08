@@ -21,6 +21,7 @@ add_library(
     source/zobrist.cpp
     source/util/fen.cpp
     source/util/perft.cpp
+    source/util/san.cpp
     source/util/uci.cpp
 )
 add_library(chesslib::chesslib ALIAS chesslib_chesslib)
