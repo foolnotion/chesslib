@@ -18,12 +18,12 @@ struct board_state {
     square enpassant{square::none};
     square white_king{square::e1};
     square black_king{square::e8};
-    u8  ply{0};
-    u16 count{1};
+    u8  halfmove_clock{0};
+    u16 fullmove_number{1};
 
     auto operator==(board_state const& s) const -> bool {
-        return std::tie(side, castling, enpassant, white_king, black_king, ply, count) ==
-               std::tie(s.side, s.castling, s.enpassant, s.white_king, s.black_king, s.ply, s.count);
+        return std::tie(side, castling, enpassant, white_king, black_king, halfmove_clock, fullmove_number) ==
+               std::tie(s.side, s.castling, s.enpassant, s.white_king, s.black_king, s.halfmove_clock, s.fullmove_number);
     }
 };
 

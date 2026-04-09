@@ -95,7 +95,7 @@
 
 | Item | Decision |
 |------|----------|
-| `ply` type | Stay `u8` — it is the FEN halfmove clock (50-move rule), max value 100, fits comfortably in `u8` |
+| `ply` → `halfmove_clock`, `count` → `fullmove_number` | Renamed to follow CPW convention. `halfmove_clock` stays `u8` (50-move rule, max 100). `fullmove_number` is `u16` (sufficient for any practical game length) |
 | `pieces_`/`colors_` encapsulation | Done — private fields, public accessors, friends declared |
 | `do_move`/`swap` visibility | Done — private |
 | `scope_exit` utility | Done — `include/chesslib/core/scope_exit.hpp` |

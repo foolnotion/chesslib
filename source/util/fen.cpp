@@ -114,7 +114,7 @@ namespace chesslib::fen {
                 }
                 case fen_record::halfmove_clock: {
                     auto const* end = std::to_address(field.end());
-                    auto [ptr, ec] = std::from_chars(std::to_address(field.begin()), end, state.ply);
+                    auto [ptr, ec] = std::from_chars(std::to_address(field.begin()), end, state.halfmove_clock);
                     if (ec != std::errc{} || ptr != end) {
                         return tl::unexpected(parse_error{
                             .reason = error::invalid_halfmove_clock,
@@ -125,7 +125,7 @@ namespace chesslib::fen {
                 }
                 case fen_record::fullmove_number: {
                     auto const* end = std::to_address(field.end());
-                    auto [ptr, ec] = std::from_chars(std::to_address(field.begin()), end, state.count);
+                    auto [ptr, ec] = std::from_chars(std::to_address(field.begin()), end, state.fullmove_number);
                     if (ec != std::errc{} || ptr != end) {
                         return tl::unexpected(parse_error{
                             .reason = error::invalid_fullmove_number,
@@ -199,7 +199,7 @@ namespace chesslib::fen {
         fen += state.enpassant == square::none ? "-" : me::enum_name(state.enpassant);
 
         fen.push_back(' ');
-        fen += fmt::format("{} {}", state.ply, state.count);
+        fen += fmt::format("{} {}", state.halfmove_clock, state.fullmove_number);
         return fen;
     }
 }  // namespace chesslib::fen
