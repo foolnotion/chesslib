@@ -42,29 +42,42 @@ namespace chesslib::fen {
                         });
                     };
                     auto row = static_cast<i32>(square::a8);
+                    auto rank_count = 0;
+                    auto white_kings = 0;
+                    auto black_kings = 0;
                     for (auto line : std::ranges::views::split(field, '/')) {
-                        auto sq = row-1;
+                        rank_count++;
+                        auto sq = row - 1;
+                        auto file_count = 0;
                         for (auto c : line) {
                             if (std::isdigit(c) != 0) {
                                 auto skip = c - '0';
                                 if (skip < 1 || skip > 8) { return make_err(line); }
                                 sq += skip;
+                                file_count += skip;
                             }
                             else if (std::isalpha(c) != 0) {
                                 sq += 1;
+                                file_count += 1;
                                 if (!coord::valid(sq)) { return make_err(line); }
                                 auto col     = std::isupper(c) != 0 ? color::white : color::black;
                                 auto pic     = char2piece(static_cast<char>(std::tolower(c)));
                                 b.pieces_[static_cast<size_t>(sq)] = pic;
                                 b.colors_[static_cast<size_t>(sq)] = col;
                                 if (pic == piece::king) {
-                                    auto& k = col == color::white ? state.white_king : state.black_king;
+                                    auto& k   = col == color::white ? state.white_king : state.black_king;
+                                    auto& cnt = col == color::white ? white_kings : black_kings;
+                                    cnt++;
+                                    if (cnt > 1) { return make_err(line); }
                                     k = static_cast<square>(sq);
                                 }
                             }
                         }
+                        if (file_count != 8) { return make_err(line); }
                         row -= coord::ncol;
                     }
+                    if (rank_count != 8) { return make_err(field); }
+                    if (white_kings != 1 || black_kings != 1) { return make_err(field); }
                     break;
                 }
                 case fen_record::active_color: {

@@ -81,6 +81,7 @@ class board
     {
         pieces_ = encoding::default_pieces();
         colors_ = encoding::default_colors();
+        state_  = board_state{};
     }
 
     auto clear() -> void
@@ -89,6 +90,15 @@ class board
             pieces_[i] = piece::none;
             colors_[i] = color::none;
         }
+        state_ = board_state{
+            .side            = side_to_move::white,
+            .castling        = static_cast<castling_rights>(0),
+            .enpassant       = square::none,
+            .white_king      = square::none,
+            .black_king      = square::none,
+            .halfmove_clock  = 0,
+            .fullmove_number = 1,
+        };
     }
 
     auto is_attacked(int i, side_to_move s) const -> bool

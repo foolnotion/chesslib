@@ -167,6 +167,17 @@ auto move_maker::make() -> void {
     // Always advance the side to move. undo() restores the full saved state,
     // so this is automatically reversed without any extra work.
     state.side = (state.side == side_to_move::white) ? side_to_move::black : side_to_move::white;
+
+    // Update move counters. The halfmove clock resets on a pawn move or capture,
+    // otherwise increments. The fullmove number increments after black's move.
+    if (p == piece::pawn || move_.capture) {
+        state.halfmove_clock = 0;
+    } else {
+        state.halfmove_clock++;
+    }
+    if (!white_to_move) {
+        state.fullmove_number++;
+    }
 }
 
 auto move_maker::undo() -> void {
