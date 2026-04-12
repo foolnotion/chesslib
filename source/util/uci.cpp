@@ -32,13 +32,14 @@ constexpr auto parse_square(char file, char rank) -> square {
     return static_cast<square>((static_cast<unsigned>(r) << 4U) | static_cast<unsigned>(f));
 }
 
-auto find_legal_move(board& b, auto&& predicate) -> tl::expected<move, std::string> {
+auto find_legal_move(board const& b, auto&& predicate) -> tl::expected<move, std::string> {
+    auto& mutable_board = const_cast<board&>(b);
     move_list pseudo;
-    move_generator{b}.moves(pseudo);
+    move_generator{mutable_board}.moves(pseudo);
 
     for (auto const& m : pseudo) {
         if (!predicate(m)) { continue; }
-        move_maker mm{b, m};
+        move_maker mm{mutable_board, m};
         if (!mm.check()) {
             return m;
         }

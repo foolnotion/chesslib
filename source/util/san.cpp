@@ -39,11 +39,12 @@ constexpr auto is_promo_letter(char c) -> bool {
 constexpr auto is_rank_digit(char c) -> bool { return c >= '1' && c <= '8'; }
 constexpr auto is_file_letter(char c) -> bool { return c >= 'a' && c <= 'h'; }
 
-auto has_any_legal_move(board& b) -> bool {
+auto has_any_legal_move(board const& b) -> bool {
+    auto& mutable_board = const_cast<board&>(b);
     move_list pseudo;
-    move_generator{b}.moves(pseudo);
+    move_generator{mutable_board}.moves(pseudo);
     for (auto const& candidate : pseudo) {
-        move_maker mm{b, candidate};
+        move_maker mm{mutable_board, candidate};
         if (!mm.check()) {
             return true;
         }
@@ -57,9 +58,10 @@ struct disambiguation_info {
     bool same_rank{false};
 };
 
-auto disambiguation_flags(board& b, move current, piece p) -> disambiguation_info {
+auto disambiguation_flags(board const& b, move current, piece p) -> disambiguation_info {
+    auto& mutable_board = const_cast<board&>(b);
     move_list pseudo;
-    move_generator{b}.moves(pseudo);
+    move_generator{mutable_board}.moves(pseudo);
 
     disambiguation_info info;
 
@@ -68,7 +70,7 @@ auto disambiguation_flags(board& b, move current, piece p) -> disambiguation_inf
         if (candidate.target_square != current.target_square) { continue; }
         if (b.piece_at(candidate.source_square) != p) { continue; }
 
-        move_maker mm{b, candidate};
+        move_maker mm{mutable_board, candidate};
         if (mm.check()) { continue; }
 
         info.any_ambig = true;
@@ -79,14 +81,15 @@ auto disambiguation_flags(board& b, move current, piece p) -> disambiguation_inf
     return info;
 }
 
-auto find_san_move(board& b, auto&& predicate) -> tl::expected<move, error> {
+auto find_san_move(board const& b, auto&& predicate) -> tl::expected<move, error> {
+    auto& mutable_board = const_cast<board&>(b);
     move_list pseudo;
-    move_generator{b}.moves(pseudo);
+    move_generator{mutable_board}.moves(pseudo);
 
     move const* found = nullptr;
     for (auto const& candidate : pseudo) {
         if (!predicate(candidate)) { continue; }
-        move_maker mm{b, candidate};
+        move_maker mm{mutable_board, candidate};
         if (mm.check()) { continue; }
         if (found != nullptr) {
             return tl::unexpected{error::ambiguous};
