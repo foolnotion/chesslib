@@ -171,17 +171,17 @@ TEST_CASE("fen export", "[library]")
         "3rr3/1p1kbQ2/p1p1n3/q2p1Bp1/3P4/2N1P1P1/PP4P1/4RRK1 w - - 0 1",
         "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
         "8/7p/8/7k/2K1N3/6Q1/5B2/8 w - - 0 1",
-        "8/8/8/8/3K4/8/8/8 w - - 0 1",
-        "5rr1/8/8/8/8/8/q3PP2/R3K2R w - - 0 1",
-        "5rr1/8/8/8/8/5p2/q3PP2/R3K2R w - - 0 1",
-        "8/8/2r3n1/8/4B3/5N2/2R3P1/8 w - - 0 1",
-        "8/8/2r3n1/8/4B3/5n2/2q3p1/8 w - - 0 1",
-        "8/8/2r3n1/8/4B3/5n2/2q3p1/8 b - - 0 1",
+        "7k/8/8/8/3K4/8/8/8 w - - 0 1",
+        "5rrk/8/8/8/8/8/q3PP2/R3K2R w - - 0 1",
+        "5rrk/8/8/8/8/5p2/q3PP2/R3K2R w - - 0 1",
+        "7k/8/2r3n1/8/4B3/5N2/2R3P1/K7 w - - 0 1",
+        "7k/8/2r3n1/8/4B3/5n2/2q3p1/K7 w - - 0 1",
+        "7k/8/2r3n1/8/4B3/5n2/2q3p1/K7 b - - 0 1",
         "5R2/k5r1/P2p4/1K1Np3/1P2P1p1/8/8/1r6 w - - 0 1",
         "5R2/k5r1/P2p4/1K1Np3/1P2P1p1/8/8/1r6 b - - 0 1",
         "8/4k3/8/8/8/8/r6r/4K3 w - - 0 1",
         "8/4k3/8/8/8/8/r6r/4K3 b - - 0 1",
-        "8/8/8/8/8/8/8/4K2R w K - 0 1",
+        "k7/8/8/8/8/8/8/4K2R w K - 0 1",
         "8/8/8/3K4/8/4k3/8/8 w - - 0 1",
         "8/8/8/3K4/8/4k3/8/8 b - - 0 1",
         "8/4k3/8/8/8/8/r6r/R3K2R w KQ - 0 1"
@@ -221,7 +221,7 @@ TEST_CASE("move generator", "[library]")
     SECTION("pawn moves")
     {
         constexpr std::array cases = {
-            "8/8/8/8/3pP3/8/8/8 b - e3 0 1"
+            "7k/8/8/8/3pP3/8/8/K7 b - e3 0 1"
         };
 
         check_test_cases(cases, piece::pawn);
@@ -239,8 +239,8 @@ TEST_CASE("move generator", "[library]")
     {
         constexpr std::array cases = {
             "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
-            "8/8/8/3B4/8/8/8/8 w - - 0 1",
-            "P5P1/8/8/3B4/8/5P2/P7/8 w - - 0 1",
+            "7k/8/8/3B4/8/8/8/K7 w - - 0 1",
+            "7k/P5P1/8/3B4/8/5P2/P7/K7 w - - 0 1",
         };
         check_test_cases(cases, piece::bishop);
     }
@@ -248,7 +248,7 @@ TEST_CASE("move generator", "[library]")
     SECTION("rook moves")
     {
         constexpr std::array cases = {
-            "8/8/8/3R4/8/8/8/8 w - - 0 1",
+            "7k/8/8/3R4/8/8/8/K7 w - - 0 1",
             "8/4k3/8/8/8/8/r6r/R3K2R w KQ - 0 1"
         };
         check_test_cases(cases, piece::rook);
@@ -258,8 +258,8 @@ TEST_CASE("move generator", "[library]")
     {
         constexpr std::array cases = {
             "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
-            "8/8/8/3Q4/8/8/8/8 w - - 0 1",
-            "3P4/1p3P2/8/P2Q2p1/8/1p3P2/3p4/8 w - - 0 1"
+            "7k/8/8/3Q4/8/8/8/K7 w - - 0 1",
+            "7k/3P4/1p3P2/3Q2p1/8/1p3P2/3p4/K7 w - - 0 1"
         };
         check_test_cases(cases, piece::queen);
     }
@@ -267,7 +267,7 @@ TEST_CASE("move generator", "[library]")
     SECTION("king moves")
     {
         constexpr std::array cases = {
-            "8/8/8/8/8/8/8/4K2R w K - 0 1",
+            "k7/8/8/8/8/8/8/4K2R w K - 0 1",
             "8/8/8/3K4/8/4k3/8/8 w - - 0 1",
             "8/8/8/3K4/8/4k3/8/8 b - - 0 1",
             "8/4k3/8/8/8/8/r6r/R3K2R w KQ - 0 1"
@@ -284,12 +284,12 @@ TEST_CASE("attacked squares", "[library]")
         "3rr3/1p1kbQ2/p1p1n3/q2p1Bp1/3P4/2N1P1P1/PP4P1/4RRK1 w - - 0 1",
         "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
         "8/7p/8/7k/2K1N3/6Q1/5B2/8 w - - 0 1",
-        "8/8/8/8/3K4/8/8/8 w - - 0 1",
-        "5rr1/8/8/8/8/8/q3PP2/R3K2R w - - 0 1",
-        "5rr1/8/8/8/8/5p2/q3PP2/R3K2R w - - 0 1",
-        "8/8/2r3n1/8/4B3/5N2/2R3P1/8 w - - 0 1",
-        "8/8/2r3n1/8/4B3/5n2/2q3p1/8 w - - 0 1",
-        "8/8/2r3n1/8/4B3/5n2/2q3p1/8 b - - 0 1",
+        "7k/8/8/8/3K4/8/8/8 w - - 0 1",
+        "5rrk/8/8/8/8/8/q3PP2/R3K2R w - - 0 1",
+        "5rrk/8/8/8/8/5p2/q3PP2/R3K2R w - - 0 1",
+        "7k/8/2r3n1/8/4B3/5N2/2R3P1/K7 w - - 0 1",
+        "7k/8/2r3n1/8/4B3/5n2/2q3p1/K7 w - - 0 1",
+        "7k/8/2r3n1/8/4B3/5n2/2q3p1/K7 b - - 0 1",
         "5R2/k5r1/P2p4/1K1Np3/1P2P1p1/8/8/1r6 w - - 0 1",
         "5R2/k5r1/P2p4/1K1Np3/1P2P1p1/8/8/1r6 b - - 0 1",
         "8/4k3/8/8/8/8/r6r/4K3 w - - 0 1",
@@ -656,6 +656,33 @@ TEST_CASE("fen errors", "[library]")
         REQUIRE(!result);
         REQUIRE(result.error().reason == error::invalid_enpassant_target);
         REQUIRE(result.error().input == "z9");
+    }
+
+    SECTION("invalid castling availability") {
+        auto result = read("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KK - 0 1");
+        REQUIRE(!result);
+        REQUIRE(result.error().reason == error::invalid_castling_availability);
+        REQUIRE(result.error().input == "KK");
+    }
+
+    SECTION("invalid piece placement character") {
+        auto result = read("rnbqkbnr/pppppppp/8/8/8/8/PPPP1PPP/RNBQKBNZ w KQkq - 0 1");
+        REQUIRE(!result);
+        REQUIRE(result.error().reason == error::invalid_piece_placement);
+    }
+
+    SECTION("invalid en-passant rank for side to move") {
+        auto result = read("rnbqkbnr/pppp1ppp/8/4p3/8/8/PPPPPPPP/RNBQKBNR w KQkq e3 0 2");
+        REQUIRE(!result);
+        REQUIRE(result.error().reason == error::invalid_enpassant_target);
+        REQUIRE(result.error().input == "e3");
+    }
+
+    SECTION("invalid fullmove number zero") {
+        auto result = read("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 0");
+        REQUIRE(!result);
+        REQUIRE(result.error().reason == error::invalid_fullmove_number);
+        REQUIRE(result.error().input == "0");
     }
 
     SECTION("too few fields") {
