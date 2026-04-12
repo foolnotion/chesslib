@@ -33,7 +33,7 @@ constexpr auto parse_square(char file, char rank) -> square {
 }
 
 auto find_legal_move(board const& b, auto&& predicate) -> tl::expected<move, std::string> {
-    auto& mutable_board = const_cast<board&>(b);
+    auto mutable_board = b;
     move_list pseudo;
     move_generator{mutable_board}.moves(pseudo);
 
