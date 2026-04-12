@@ -4,6 +4,7 @@
 #include <array>
 
 #include "encoding.hpp"
+#include "chesslib/core/zobrist.hpp"
 #include "chesslib/util/fen.hpp"
 
 namespace me = magic_enum;
@@ -67,14 +68,16 @@ class board
     static constexpr std::array queen_offsets {-17, -16, -15, -1, +1, +15, +16, +17};
     static constexpr std::array king_offsets  {-17, -16, -15, -1, +1, +15, +16, +17};
 
-    board() = default;
+    board() {
+        hash_ = zobrist::hasher::recompute(*this);
+    }
 
     explicit board(std::string_view fen) {
         *this = fen::read_or_throw(fen);
     }
 
     auto operator==(board const& b) const -> bool {
-        return state_ == b.state_ && pieces_ == b.pieces_ && colors_ == b.colors_;
+        return state_ == b.state_ && pieces_ == b.pieces_ && colors_ == b.colors_ && hash_ == b.hash_;
     }
 
     auto reset() -> void
@@ -82,6 +85,7 @@ class board
         pieces_ = encoding::default_pieces();
         colors_ = encoding::default_colors();
         state_  = board_state{};
+        hash_   = zobrist::hasher::recompute(*this);
     }
 
     auto clear() -> void
@@ -99,6 +103,7 @@ class board
             .halfmove_clock  = 0,
             .fullmove_number = 1,
         };
+        hash_ = zobrist::hasher::recompute(*this);
     }
 
     auto is_attacked(int i, side_to_move s) const -> bool
@@ -187,9 +192,11 @@ class board
 
     std::array<piece, encoding::length> pieces_ {encoding::default_pieces()};
     std::array<color, encoding::length> colors_ {encoding::default_colors()};
+    hash hash_ {0};
 
     friend struct move_maker;
     friend struct move_generator;
+    friend struct zobrist::hasher;
     friend auto fen::read(std::string_view fen) -> tl::expected<board, fen::parse_error>;
     friend auto fen::write(board const& b) -> std::string;
 };  // board
@@ -207,6 +214,7 @@ struct move_maker {
     private:
     board& board_;
     board_state state_;
+    hash hash_{};
     move move_;
     std::tuple<u8, piece, color> capture_info_{square::none, piece::none, color::none};
 };

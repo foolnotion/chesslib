@@ -11,6 +11,7 @@
 #include "chesslib/board/board.hpp"
 #include "chesslib/board/encoding.hpp"
 #include "chesslib/core/types.hpp"
+#include "chesslib/core/zobrist.hpp"
 
 namespace chesslib {
 
@@ -67,9 +68,11 @@ auto move_maker::make() -> void {
     auto& state = board_.state_;
     auto& castling  = state.castling;
     auto& enpassant = state.enpassant;
+    auto& hash = board_.hash_;
 
     // make a copy of the old state
     state_ = board_.state_;
+    hash_ = board_.hash_;
 
     auto& pieces = board_.pieces_;
     auto& colors = board_.colors_;
@@ -82,6 +85,17 @@ auto move_maker::make() -> void {
     auto [p, c] = board_[src];
     ASSERT(p != piece::none);
 
+    auto const color_index = static_cast<int>(c);
+    auto const piece_index = static_cast<int>(p);
+
+    if (static_cast<u8>(castling) != 0) {
+        hash ^= zobrist::hasher::castling(static_cast<int>(castling));
+    }
+    if (enpassant != square::none) {
+        hash ^= zobrist::hasher::enpassant_file(coord::file(enpassant));
+    }
+    hash ^= zobrist::hasher::piece(color_index, piece_index, src);
+
     // swap target and destination squares & colors
     if (move_.capture) {
         auto sq = move_.enpassant
@@ -89,6 +103,10 @@ auto move_maker::make() -> void {
             : tgt;
         ASSERT(board_.piece_at(sq) != piece::none);
         capture_info_ = {static_cast<u8>(sq), board_.piece_at(sq), board_.color_at(sq)};
+
+        auto const captured_piece = board_.piece_at(sq);
+        auto const captured_color = board_.color_at(sq);
+        hash ^= zobrist::hasher::piece(static_cast<int>(captured_color), static_cast<int>(captured_piece), sq);
 
         if (board_.piece_at(sq) == piece::rook) {
             // capturing a rook removes castling rights
@@ -111,16 +129,35 @@ auto move_maker::make() -> void {
         pieces[tgt] = static_cast<piece>(move_.promotion);
     }
 
+    auto const piece_on_target = move_.promotion ? static_cast<piece>(move_.promotion) : p;
+    hash ^= zobrist::hasher::piece(color_index, static_cast<int>(piece_on_target), tgt);
+
     auto const white_no_castling = ~(castling_rights::wk | castling_rights::wq);
     auto const black_no_castling = ~(castling_rights::bk | castling_rights::bq);
 
     if (move_.castling) {
         castling &= (white_to_move ? white_no_castling : black_no_castling);
         switch(tgt) {
-            case square::g1: board_.swap(square::h1, square::f1); break;
-            case square::g8: board_.swap(square::h8, square::f8); break;
-            case square::c1: board_.swap(square::a1, square::d1); break;
-            case square::c8: board_.swap(square::a8, square::d8); break;
+            case square::g1:
+                hash ^= zobrist::hasher::piece(static_cast<int>(color::white), static_cast<int>(piece::rook), square::h1);
+                hash ^= zobrist::hasher::piece(static_cast<int>(color::white), static_cast<int>(piece::rook), square::f1);
+                board_.swap(square::h1, square::f1);
+                break;
+            case square::g8:
+                hash ^= zobrist::hasher::piece(static_cast<int>(color::black), static_cast<int>(piece::rook), square::h8);
+                hash ^= zobrist::hasher::piece(static_cast<int>(color::black), static_cast<int>(piece::rook), square::f8);
+                board_.swap(square::h8, square::f8);
+                break;
+            case square::c1:
+                hash ^= zobrist::hasher::piece(static_cast<int>(color::white), static_cast<int>(piece::rook), square::a1);
+                hash ^= zobrist::hasher::piece(static_cast<int>(color::white), static_cast<int>(piece::rook), square::d1);
+                board_.swap(square::a1, square::d1);
+                break;
+            case square::c8:
+                hash ^= zobrist::hasher::piece(static_cast<int>(color::black), static_cast<int>(piece::rook), square::a8);
+                hash ^= zobrist::hasher::piece(static_cast<int>(color::black), static_cast<int>(piece::rook), square::d8);
+                board_.swap(square::a8, square::d8);
+                break;
             default: break;
         }
     }
@@ -178,6 +215,14 @@ auto move_maker::make() -> void {
     if (!white_to_move) {
         state.fullmove_number++;
     }
+
+    if (static_cast<u8>(castling) != 0) {
+        hash ^= zobrist::hasher::castling(static_cast<int>(castling));
+    }
+    if (enpassant != square::none) {
+        hash ^= zobrist::hasher::enpassant_file(coord::file(enpassant));
+    }
+    hash ^= zobrist::hasher::side_to_move();
 }
 
 auto move_maker::undo() -> void {
@@ -207,8 +252,10 @@ auto move_maker::undo() -> void {
 
     // restore old state
     board_.state_ = state_;
+    board_.hash_ = hash_;
     capture_info_ = {square::none, piece::none, color::none};
     state_        = {};
+    hash_         = 0;
 }
 
 // Returns true if making this move leaves the moving side's king in check.
