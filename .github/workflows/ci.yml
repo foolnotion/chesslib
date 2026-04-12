@@ -25,6 +25,21 @@ jobs:
       - name: Test
         run: nix develop --command ctest --test-dir build --output-on-failure
 
+      - name: Install
+        run: nix develop --command cmake --install build --prefix "$RUNNER_TEMP/chesslib-install"
+
+      - name: Verify installed package
+        run: >-
+          nix develop --command cmake -S test/package-install -B build/package-install
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/chesslib-install"
+
+      - name: Build installed-package consumer
+        run: nix develop --command cmake --build build/package-install
+
+      - name: Run installed-package consumer
+        run: ./build/package-install/chesslib_package_smoke
+
   clang-tidy:
     name: clang-tidy
     runs-on: ubuntu-latest

@@ -29,17 +29,25 @@ All dependencies are managed via the [Nix](https://nixos.org/) flake:
 ## Building
 
 ```sh
-nix develop
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build
+nix develop --command cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+nix develop --command cmake --build build
 ```
 
 To build and run tests:
 
 ```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -Dchesslib_DEVELOPER_MODE=ON
-cmake --build build
-ctest --test-dir build --output-on-failure
+nix develop --command cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -Dchesslib_DEVELOPER_MODE=ON
+nix develop --command cmake --build build
+nix develop --command ctest --test-dir build --output-on-failure
+```
+
+To verify the installed package can be consumed via `find_package`:
+
+```sh
+nix develop --command cmake --install build --prefix "$PWD/install"
+nix develop --command cmake -S test/package-install -B build/package-install -DCMAKE_PREFIX_PATH="$PWD/install"
+nix develop --command cmake --build build/package-install
+./build/package-install/chesslib_package_smoke
 ```
 
 ## Consuming via CMake
@@ -68,11 +76,10 @@ target_link_libraries(my_target PRIVATE chesslib::chesslib)
 int main() {
     chesslib::board b{"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"};
 
-    chesslib::move_generator gen{b};
-    auto moves = gen.legal_moves();  // gch::small_vector<move, 256>
+    auto moves = chesslib::legal_moves(b);
 
     for (auto const& m : moves) {
-        auto fen = chesslib::uci::to_string(m);
+        auto uci = chesslib::uci::to_string(m);
         // ...
     }
 }
