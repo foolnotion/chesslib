@@ -41,7 +41,8 @@ constexpr auto is_file_letter(char c) -> bool { return c >= 'a' && c <= 'h'; }
 
 } // namespace
 
-auto to_string(board& b, move m) -> std::string {
+auto to_string(board const& b, move m) -> std::string {
+    auto& mutable_board = const_cast<board&>(b);
     std::string result;
 
     if (m.castling) {
@@ -101,7 +102,7 @@ auto to_string(board& b, move m) -> std::string {
     }
 
     // Check / checkmate suffix
-    move_maker mm{b, m};
+    move_maker mm{mutable_board, m};
     mm.make();
     if (b.is_king_in_check()) {
         result += legal_moves(b).empty() ? '#' : '+';
@@ -111,7 +112,7 @@ auto to_string(board& b, move m) -> std::string {
     return result;
 }
 
-auto from_string(board& b, std::string_view s) -> tl::expected<move, error> {
+auto from_string(board const& b, std::string_view s) -> tl::expected<move, error> {
     if (s.empty()) {
         return tl::unexpected{error::invalid_syntax};
     }

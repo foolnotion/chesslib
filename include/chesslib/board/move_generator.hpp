@@ -225,13 +225,14 @@ struct move_generator {
     }
 }; // generator
 
-inline auto legal_moves(board& b) -> move_list {
+inline auto legal_moves(board const& b) -> move_list {
+    auto& mutable_board = const_cast<board&>(b);
     move_list pseudo;
-    move_generator{b}.moves(pseudo);
+    move_generator{mutable_board}.moves(pseudo);
 
     move_list legal;
     for (auto const& m : pseudo) {
-        move_maker mm{b, m};
+        move_maker mm{mutable_board, m};
         if (!mm.check()) {
             legal.push_back(m);
         }
@@ -240,12 +241,12 @@ inline auto legal_moves(board& b) -> move_list {
 }
 
 // True when the side to move has no legal moves and their king is in check.
-inline auto is_checkmate(board& b) -> bool {
+inline auto is_checkmate(board const& b) -> bool {
     return b.is_king_in_check() && legal_moves(b).empty();
 }
 
 // True when the side to move has no legal moves but their king is not in check.
-inline auto is_stalemate(board& b) -> bool {
+inline auto is_stalemate(board const& b) -> bool {
     return !b.is_king_in_check() && legal_moves(b).empty();
 }
 

@@ -304,6 +304,18 @@ TEST_CASE("attacked squares", "[library]")
     }
 }
 
+TEST_CASE("king attacks are reported", "[library]")
+{
+    board b{"8/8/8/8/8/8/4k3/4K3 w - - 0 1"};
+
+    REQUIRE(b.is_attacked(square::d1, side_to_move::black));
+    REQUIRE(b.is_attacked(square::e1, side_to_move::black));
+    REQUIRE(b.is_attacked(square::f1, side_to_move::black));
+    REQUIRE(b.is_attacked(square::d2, side_to_move::black));
+    REQUIRE(b.is_attacked(square::f2, side_to_move::black));
+    REQUIRE(!b.is_attacked(square::h1, side_to_move::black));
+}
+
 TEST_CASE("parse en-passant", "[library]")
 {
     constexpr auto* fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1";
@@ -699,6 +711,23 @@ TEST_CASE("checkmate and stalemate", "[library]")
         REQUIRE(!is_checkmate(b));
         REQUIRE(!is_stalemate(b));
     }
+}
+
+TEST_CASE("const query APIs", "[library]")
+{
+    board mutable_board;
+    board const& b = mutable_board;
+
+    auto const moves = legal_moves(b);
+    REQUIRE(moves.size() == 20);
+
+    auto const uci_move = uci::from_string(b, "e2e4");
+    REQUIRE(uci_move.has_value());
+    REQUIRE(san::to_string(b, *uci_move) == "e4");
+
+    auto const san_move = san::from_string(b, "Nf3");
+    REQUIRE(san_move.has_value());
+    REQUIRE(san_move->source_square == square::g1);
 }
 
 TEST_CASE("uci", "[library]")

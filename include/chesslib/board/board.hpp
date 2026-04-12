@@ -115,7 +115,8 @@ class board
         return attacked_by<pawn>         (pawn_capture_offsets, i, s) ||
                attacked_by<knight>       (knight_offsets, i, s)       ||
                attacked_by<bishop, queen>(bishop_offsets, i, s)       ||
-               attacked_by<rook, queen>  (rook_offsets, i, s);
+             attacked_by<rook, queen>  (rook_offsets, i, s)         ||
+             attacked_by<king>         (king_offsets, i, s);
     }
 
     auto is_attacked(square sq, side_to_move s) const -> bool

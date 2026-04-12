@@ -19,12 +19,12 @@ enum class error : u8 {
 
 // Format a move in SAN notation: "e4", "Nf3", "O-O", "exd8=Q#", etc.
 // Takes board& because check/checkmate detection requires make/undo internally.
-auto to_string(board& b, move m) -> std::string;
+auto to_string(board const& b, move m) -> std::string;
 
 // Parse a SAN string into a legal move on board b.
 // Returns an error if the string is malformed, no legal move matches, or the
 // match is ambiguous (which should not happen for a valid SAN string).
-auto from_string(board& b, std::string_view s) -> tl::expected<move, error>;
+auto from_string(board const& b, std::string_view s) -> tl::expected<move, error>;
 
 } // namespace san
 } // namespace chesslib

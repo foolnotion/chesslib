@@ -33,7 +33,7 @@ constexpr auto parse_square(char file, char rank) -> square {
 }
 } // namespace
 
-auto from_string(board& b, std::string_view s) -> tl::expected<move, std::string> {
+auto from_string(board const& b, std::string_view s) -> tl::expected<move, std::string> {
     if (s.size() < 4 || s.size() > 5) {
         return tl::unexpected{std::string{s}};
     }
