@@ -14,7 +14,7 @@ namespace helpers {
 
 struct move_generator {
 
-    board& b;
+    board const& b;
 
     auto ready_to_promote(auto i) const {
         return b.white_to_move() ? (i >= square::a7 && i <= square::h7)
@@ -151,12 +151,15 @@ struct move_generator {
 
                 case piece::king: {
                     // regular king moves + castling
-                    // castling rights flags
-                    // temporarily remove the king so that is_attacked() sees through it when
-                    // checking castling path squares (e.g. a rook on a8 still attacks g8 even
-                    // with the king on e8 blocking the naive ray walk)
-                    b.pieces_[i] = piece::none;
-                    auto const restore_king = scope_exit{[&]() -> void { b.pieces_[i] = p; }};
+                    // Temporarily remove the king from the board so that is_attacked() correctly
+                    // sees through it when checking castling path squares — e.g. a rook on a8
+                    // still attacks g8 even with the king on e8 blocking the ray.
+                    // The mutation is local and fully reversed before leaving this scope.
+                    // move_generator is a friend of board specifically to allow this.
+                    auto& bm = const_cast<board&>(b);
+                    bm.pieces_[i] = piece::none;
+                    auto const restore_king = scope_exit{[&]() -> void { bm.pieces_[i] = p; }};
+
                     auto other_side = side ? side_to_move::black : side_to_move::white;
 
                     if (!in_check) {
@@ -167,11 +170,6 @@ struct move_generator {
                         // start square, a clear path, and the king not moving through check.
                         // We verify king and rook placement explicitly rather than trusting the
                         // castling-rights bits alone, so malformed FENs cannot produce illegal moves.
-
-                        // in order to correctly detect attacks from pieces whose "ray" is blocked by the king itself,
-                        // we remove the king from the board before checking for attacks, for example:
-                        // ♜-o-o-o-♔-x
-                        // (here, the square marked "x" would still be in check from the rook)
 
                         auto const expected_king = side ? square::e1 : square::e8;
                         if (static_cast<square>(i) == expected_king) {
@@ -225,14 +223,13 @@ struct move_generator {
     }
 }; // generator
 
-inline auto legal_moves(board const& b) -> move_list {
-    auto& mutable_board = const_cast<board&>(b);
+inline auto legal_moves(board& b) -> move_list {
     move_list pseudo;
-    move_generator{mutable_board}.moves(pseudo);
+    move_generator{b}.moves(pseudo);
 
     move_list legal;
     for (auto const& m : pseudo) {
-        move_maker mm{mutable_board, m};
+        move_maker mm{b, m};
         if (!mm.check()) {
             legal.push_back(m);
         }
@@ -240,14 +237,29 @@ inline auto legal_moves(board const& b) -> move_list {
     return legal;
 }
 
+inline auto legal_moves(board const& b) -> move_list {
+    board tmp = b;
+    return legal_moves(tmp);
+}
+
 // True when the side to move has no legal moves and their king is in check.
-inline auto is_checkmate(board const& b) -> bool {
+inline auto is_checkmate(board& b) -> bool {
     return b.is_king_in_check() && legal_moves(b).empty();
 }
 
+inline auto is_checkmate(board const& b) -> bool {
+    board tmp = b;
+    return is_checkmate(tmp);
+}
+
 // True when the side to move has no legal moves but their king is not in check.
-inline auto is_stalemate(board const& b) -> bool {
+inline auto is_stalemate(board& b) -> bool {
     return !b.is_king_in_check() && legal_moves(b).empty();
+}
+
+inline auto is_stalemate(board const& b) -> bool {
+    board tmp = b;
+    return is_stalemate(tmp);
 }
 
 }  // namespace chesslib

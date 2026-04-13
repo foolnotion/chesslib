@@ -41,8 +41,7 @@ constexpr auto is_file_letter(char c) -> bool { return c >= 'a' && c <= 'h'; }
 
 } // namespace
 
-auto to_string(board const& b, move m) -> std::string {
-    auto& mutable_board = const_cast<board&>(b);
+auto to_string(board& b, move m) -> std::string {
     std::string result;
 
     if (m.castling) {
@@ -102,7 +101,7 @@ auto to_string(board const& b, move m) -> std::string {
     }
 
     // Check / checkmate suffix
-    move_maker mm{mutable_board, m};
+    move_maker mm{b, m};
     mm.make();
     if (b.is_king_in_check()) {
         result += legal_moves(b).empty() ? '#' : '+';
@@ -112,7 +111,7 @@ auto to_string(board const& b, move m) -> std::string {
     return result;
 }
 
-auto from_string(board const& b, std::string_view s) -> tl::expected<move, error> {
+auto from_string(board& b, std::string_view s) -> tl::expected<move, error> {
     if (s.empty()) {
         return tl::unexpected{error::invalid_syntax};
     }
@@ -221,6 +220,16 @@ auto from_string(board const& b, std::string_view s) -> tl::expected<move, error
         return tl::unexpected{error::no_matching_move};
     }
     return *found;
+}
+
+auto to_string(board const& b, move m) -> std::string {
+    board tmp = b;
+    return to_string(tmp, m);
+}
+
+auto from_string(board const& b, std::string_view s) -> tl::expected<move, error> {
+    board tmp = b;
+    return from_string(tmp, s);
 }
 
 } // namespace chesslib::san
