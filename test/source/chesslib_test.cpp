@@ -441,6 +441,8 @@ TEST_CASE("zobrist", "[library]")
     chesslib::board b{fen};
     zobrist::hasher hasher{};
 
+    REQUIRE(hasher(b) == zobrist::hasher::recompute(b));
+
     auto check_move = [&](auto const m) {
         // what is the diff between current board and previous board?
         // how can I use this diff to incrementally update the zobrist hash?
@@ -479,6 +481,7 @@ TEST_CASE("zobrist", "[library]")
 
         INFO("Check intermediate state (move made, incremental hash update)");
         REQUIRE(h1 == hasher(b));
+        REQUIRE(hasher(b) == zobrist::hasher::recompute(b));
 
         mm.undo();
 
@@ -499,6 +502,7 @@ TEST_CASE("zobrist", "[library]")
 
         INFO("Check end state (move made and undone, 2xincremental hash update");
         REQUIRE(h1 == hasher(b));
+        REQUIRE(hasher(b) == zobrist::hasher::recompute(b));
     };
 
     SECTION("a2a4") {
@@ -540,6 +544,7 @@ TEST_CASE("zobrist", "[library]")
                 auto const before = h(b);
                 move_maker mm{b, m};
                 mm.make();
+                REQUIRE(h(b) == zobrist::hasher::recompute(b));
                 mm.undo();
                 REQUIRE(h(b) == before);
             }

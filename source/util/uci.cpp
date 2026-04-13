@@ -31,6 +31,20 @@ constexpr auto parse_square(char file, char rank) -> square {
     auto const r = static_cast<u8>(rank - '1'); // 0–7
     return static_cast<square>((static_cast<unsigned>(r) << 4U) | static_cast<unsigned>(f));
 }
+
+auto find_legal_move(board& b, auto&& predicate) -> tl::expected<move, std::string> {
+    move_list pseudo;
+    move_generator{b}.moves(pseudo);
+
+    for (auto const& m : pseudo) {
+        if (!predicate(m)) { continue; }
+        move_maker mm{b, m};
+        if (!mm.check()) {
+            return m;
+        }
+    }
+    return tl::unexpected{std::string{}};
+}
 } // namespace
 
 auto from_string(board const& b, std::string_view s) -> tl::expected<move, std::string> {
@@ -48,13 +62,15 @@ auto from_string(board const& b, std::string_view s) -> tl::expected<move, std::
                                               static_cast<unsigned char>(s[4]))))
                                         : piece::none;
 
-    // Delegate all flag logic to the move generator: search legal moves for a match.
-    for (auto const& m : legal_moves(b)) {
-        if (m.source_square != static_cast<u8>(src)) { continue; }
-        if (m.target_square != static_cast<u8>(tgt)) { continue; }
-        if (promo != piece::none && m.promotion != static_cast<u8>(promo)) { continue; }
-        if (promo == piece::none && m.promotion != 0) { continue; }
-        return m;
+    auto result = find_legal_move(b, [&](move const& m) {
+        if (m.source_square != static_cast<u8>(src)) { return false; }
+        if (m.target_square != static_cast<u8>(tgt)) { return false; }
+        if (promo != piece::none && m.promotion != static_cast<u8>(promo)) { return false; }
+        if (promo == piece::none && m.promotion != 0) { return false; }
+        return true;
+    });
+    if (result) {
+        return result;
     }
     return tl::unexpected{std::string{s}};
 }

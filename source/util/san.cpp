@@ -39,6 +39,67 @@ constexpr auto is_promo_letter(char c) -> bool {
 constexpr auto is_rank_digit(char c) -> bool { return c >= '1' && c <= '8'; }
 constexpr auto is_file_letter(char c) -> bool { return c >= 'a' && c <= 'h'; }
 
+auto has_any_legal_move(board& b) -> bool {
+    move_list pseudo;
+    move_generator{b}.moves(pseudo);
+    for (auto const& candidate : pseudo) {
+        move_maker mm{b, candidate};
+        if (!mm.check()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+struct disambiguation_info {
+    bool any_ambig{false};
+    bool same_file{false};
+    bool same_rank{false};
+};
+
+auto disambiguation_flags(board& b, move current, piece p) -> disambiguation_info {
+    move_list pseudo;
+    move_generator{b}.moves(pseudo);
+
+    disambiguation_info info;
+
+    for (auto const& candidate : pseudo) {
+        if (candidate.source_square == current.source_square) { continue; }
+        if (candidate.target_square != current.target_square) { continue; }
+        if (b.piece_at(candidate.source_square) != p) { continue; }
+
+        move_maker mm{b, candidate};
+        if (mm.check()) { continue; }
+
+        info.any_ambig = true;
+        if (coord::file(candidate.source_square) == coord::file(current.source_square)) { info.same_file = true; }
+        if (coord::rank(candidate.source_square) == coord::rank(current.source_square)) { info.same_rank = true; }
+    }
+
+    return info;
+}
+
+auto find_san_move(board& b, auto&& predicate) -> tl::expected<move, error> {
+    move_list pseudo;
+    move_generator{b}.moves(pseudo);
+
+    move const* found = nullptr;
+    for (auto const& candidate : pseudo) {
+        if (!predicate(candidate)) { continue; }
+        move_maker mm{b, candidate};
+        if (mm.check()) { continue; }
+        if (found != nullptr) {
+            return tl::unexpected{error::ambiguous};
+        }
+        found = &candidate;
+    }
+
+    if (found == nullptr) {
+        return tl::unexpected{error::no_matching_move};
+    }
+    return *found;
+}
+
 } // namespace
 
 auto to_string(board& b, move m) -> std::string {
@@ -58,23 +119,12 @@ auto to_string(board& b, move m) -> std::string {
 
         // Disambiguation: scan for other legal moves of the same piece type to the same target
         if (p != piece::pawn) {
-            bool ambig_same_file = false;
-            bool ambig_same_rank = false;
-            bool any_ambig       = false;
+            auto const info = disambiguation_flags(b, m, p);
 
-            for (auto const& c : legal_moves(b)) {
-                if (c.source_square == m.source_square) { continue; }
-                if (c.target_square != m.target_square)  { continue; }
-                if (b.piece_at(c.source_square) != p)    { continue; }
-                any_ambig = true;
-                if (coord::file(c.source_square) == coord::file(src)) { ambig_same_file = true; }
-                if (coord::rank(c.source_square) == coord::rank(src)) { ambig_same_rank = true; }
-            }
-
-            if (any_ambig) {
-                if (!ambig_same_file) {
+            if (info.any_ambig) {
+                if (!info.same_file) {
                     result += static_cast<char>('a' + coord::file(src));
-                } else if (!ambig_same_rank) {
+                } else if (!info.same_rank) {
                     result += static_cast<char>('1' + coord::rank(src));
                 } else {
                     // Both file and rank needed (3+ pieces)
@@ -104,7 +154,7 @@ auto to_string(board& b, move m) -> std::string {
     move_maker mm{b, m};
     mm.make();
     if (b.is_king_in_check()) {
-        result += legal_moves(b).empty() ? '#' : '+';
+        result += has_any_legal_move(b) ? '+' : '#';
     }
     mm.undo();
 
@@ -127,20 +177,14 @@ auto from_string(board& b, std::string_view s) -> tl::expected<move, error> {
 
     // Castling — test O-O-O before O-O (prefix match order)
     if (s == "O-O-O") {
-        for (auto const& m : legal_moves(b)) {
-            if (m.castling && (m.target_square == square::c1 || m.target_square == square::c8)) {
-                return m;
-            }
-        }
-        return tl::unexpected{error::no_matching_move};
+        return find_san_move(b, [](move const& m) {
+            return m.castling && (m.target_square == square::c1 || m.target_square == square::c8);
+        });
     }
     if (s == "O-O") {
-        for (auto const& m : legal_moves(b)) {
-            if (m.castling && (m.target_square == square::g1 || m.target_square == square::g8)) {
-                return m;
-            }
-        }
-        return tl::unexpected{error::no_matching_move};
+        return find_san_move(b, [](move const& m) {
+            return m.castling && (m.target_square == square::g1 || m.target_square == square::g8);
+        });
     }
 
     // Promotion suffix: strip "=Q" (standard) or bare "Q" when preceded by a rank digit
@@ -201,25 +245,14 @@ auto from_string(board& b, std::string_view s) -> tl::expected<move, error> {
         else { return tl::unexpected{error::invalid_syntax}; }
     }
 
-    // Match against legal moves
-    auto const moves = legal_moves(b);
-    move const* found = nullptr;
-
-    for (auto const& m : moves) {
-        if (b.piece_at(m.source_square) != p)          { continue; }
-        if (m.target_square != tgt_sq)                  { continue; }
-        if (m.promotion != promo)                       { continue; }
-        if (disambig_file >= 0 && coord::file(m.source_square) != disambig_file) { continue; }
-        if (disambig_rank >= 0 && coord::rank(m.source_square) != disambig_rank) { continue; }
-
-        if (found) { return tl::unexpected{error::ambiguous}; }
-        found = &m;
-    }
-
-    if (!found) {
-        return tl::unexpected{error::no_matching_move};
-    }
-    return *found;
+    return find_san_move(b, [&](move const& m) {
+        if (b.piece_at(m.source_square) != p) { return false; }
+        if (m.target_square != tgt_sq) { return false; }
+        if (m.promotion != promo) { return false; }
+        if (disambig_file >= 0 && coord::file(m.source_square) != disambig_file) { return false; }
+        if (disambig_rank >= 0 && coord::rank(m.source_square) != disambig_rank) { return false; }
+        return true;
+    });
 }
 
 auto to_string(board const& b, move m) -> std::string {

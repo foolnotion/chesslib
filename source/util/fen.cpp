@@ -19,6 +19,7 @@
 #include "chesslib/board/board.hpp"
 #include "chesslib/board/encoding.hpp"
 #include "chesslib/core/types.hpp"
+#include "chesslib/core/zobrist.hpp"
 
 using namespace chesslib::encoding;
 using namespace magic_enum::bitwise_operators;
@@ -181,6 +182,7 @@ namespace chesslib::fen {
                 .input  = std::string{fen}
             });
         }
+        b.hash_ = zobrist::hasher::recompute(b);
         return b;
     }
 
