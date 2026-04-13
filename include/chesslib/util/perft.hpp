@@ -25,9 +25,10 @@ struct perft_result {
         return *this;
     }
 
-    friend auto operator+(perft_result& a, perft_result const& b) -> perft_result {
-        a += b;
-        return a;
+    friend auto operator+(perft_result const& a, perft_result const& b) -> perft_result {
+        auto result = a;
+        result += b;
+        return result;
     }
 
     friend auto operator==(perft_result const& a, perft_result const& b) {

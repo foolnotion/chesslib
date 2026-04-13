@@ -19,11 +19,28 @@
 #include "chesslib/board/board.hpp"
 #include "chesslib/board/encoding.hpp"
 #include "chesslib/core/types.hpp"
+#include "chesslib/core/zobrist.hpp"
 
 using namespace chesslib::encoding;
 using namespace magic_enum::bitwise_operators;
 
 namespace chesslib::fen {
+
+    namespace {
+        auto make_error(error reason, auto const& field) -> tl::unexpected<parse_error> {
+            return tl::unexpected(parse_error{
+                .reason = reason,
+                .input  = std::string{field.begin(), field.end()}
+            });
+        }
+
+        auto is_valid_enpassant_square(square sq, side_to_move stm) -> bool {
+            auto const rank = coord::rank(me::enum_integer(sq));
+            if (stm == side_to_move::white && rank != coord::r6) { return false; }
+            if (stm == side_to_move::black && rank != coord::r3) { return false; }
+            return true;
+        }
+    }
 
     auto read(std::string_view fen) -> tl::expected<board, parse_error> {
         board b;
@@ -35,65 +52,79 @@ namespace chesslib::fen {
         for (auto field : std::ranges::views::split(fen, ' ')) {
             switch(n++) {
                 case fen_record::piece_placement: {
-                    auto make_err = [&](auto const& f) {
-                        return tl::unexpected(parse_error{
-                            .reason = error::invalid_piece_placement,
-                            .input  = std::string{f.begin(), f.end()}
-                        });
-                    };
                     auto row = static_cast<i32>(square::a8);
+                    auto rank_count = 0;
+                    auto white_kings = 0;
+                    auto black_kings = 0;
                     for (auto line : std::ranges::views::split(field, '/')) {
-                        auto sq = row-1;
+                        rank_count++;
+                        auto sq = row - 1;
+                        auto file_count = 0;
                         for (auto c : line) {
                             if (std::isdigit(c) != 0) {
                                 auto skip = c - '0';
-                                if (skip < 1 || skip > 8) { return make_err(line); }
+                                if (skip < 1 || skip > 8) { return make_error(error::invalid_piece_placement, line); }
                                 sq += skip;
+                                file_count += skip;
                             }
                             else if (std::isalpha(c) != 0) {
                                 sq += 1;
-                                if (!coord::valid(sq)) { return make_err(line); }
+                                file_count += 1;
+                                if (!coord::valid(sq)) { return make_error(error::invalid_piece_placement, line); }
                                 auto col     = std::isupper(c) != 0 ? color::white : color::black;
                                 auto pic     = char2piece(static_cast<char>(std::tolower(c)));
+                                if (pic == piece::none) { return make_error(error::invalid_piece_placement, line); }
                                 b.pieces_[static_cast<size_t>(sq)] = pic;
                                 b.colors_[static_cast<size_t>(sq)] = col;
                                 if (pic == piece::king) {
-                                    auto& k = col == color::white ? state.white_king : state.black_king;
+                                    auto& k   = col == color::white ? state.white_king : state.black_king;
+                                    auto& cnt = col == color::white ? white_kings : black_kings;
+                                    cnt++;
+                                    if (cnt > 1) { return make_error(error::invalid_piece_placement, line); }
                                     k = static_cast<square>(sq);
                                 }
+                            } else {
+                                return make_error(error::invalid_piece_placement, line);
                             }
                         }
+                        if (file_count != 8) { return make_error(error::invalid_piece_placement, line); }
                         row -= coord::ncol;
                     }
+                    if (rank_count != 8) { return make_error(error::invalid_piece_placement, field); }
+                    if (white_kings != 1 || black_kings != 1) { return make_error(error::invalid_piece_placement, field); }
                     break;
                 }
                 case fen_record::active_color: {
                     if (std::ranges::empty(field)) {
-                        return tl::unexpected(parse_error{
-                            .reason = error::invalid_active_color,
-                            .input  = {}
-                        });
+                        return tl::unexpected(parse_error{.reason = error::invalid_active_color, .input = {}});
                     }
                     auto c = field.front();
                     if (c != 'w' && c != 'b') {
-                        return tl::unexpected(parse_error{
-                            .reason = error::invalid_active_color,
-                            .input  = std::string{field.begin(), field.end()}
-                        });
+                        return make_error(error::invalid_active_color, field);
                     }
                     b.state_.side = c == 'w' ? side_to_move::white : side_to_move::black;
                     break;
                 }
                 case fen_record::castling_availability: {
+                    auto const sv = std::string_view{field.begin(), field.end()};
                     u8 castling = 0;
-                    for (auto c : field) {
+                    if (sv == "-") {
+                        state.castling = static_cast<castling_rights>(0);
+                        break;
+                    }
+                    for (auto c : sv) {
+                        u8 flag = 0;
                         switch(c) {
-                            case 'K': castling |= me::enum_integer(castling_rights::wk); break;
-                            case 'Q': castling |= me::enum_integer(castling_rights::wq); break;
-                            case 'k': castling |= me::enum_integer(castling_rights::bk); break;
-                            case 'q': castling |= me::enum_integer(castling_rights::bq); break;
-                            default:  break;
+                            case 'K': flag = me::enum_integer(castling_rights::wk); break;
+                            case 'Q': flag = me::enum_integer(castling_rights::wq); break;
+                            case 'k': flag = me::enum_integer(castling_rights::bk); break;
+                            case 'q': flag = me::enum_integer(castling_rights::bq); break;
+                            default:  return make_error(error::invalid_castling_availability, field);
                         }
+                        if ((castling & flag) != 0) {
+                            return make_error(error::invalid_castling_availability, field);
+                        }
+                        castling |= flag;
                     }
                     state.castling = static_cast<castling_rights>(castling);
                     break;
@@ -103,12 +134,21 @@ namespace chesslib::fen {
                     if (sv != "-") {
                         auto res = me::enum_cast<square>(sv);
                         if (!res) {
-                            return tl::unexpected(parse_error{
-                                .reason = error::invalid_enpassant_target,
-                                .input  = std::string{sv}
-                            });
+                            return make_error(error::invalid_enpassant_target, field);
                         }
-                        state.enpassant = res.value();
+                        auto const target = res.value();
+                        auto const moved_pawn_square = me::enum_integer(target) +
+                            (state.side == side_to_move::white ? coord::so : coord::no);
+                        auto const moved_pawn_color = state.side == side_to_move::white ? color::black : color::white;
+
+                        if (!is_valid_enpassant_square(target, state.side) ||
+                            b.piece_at(target) != piece::none ||
+                            !coord::valid(moved_pawn_square) ||
+                            b.piece_at(moved_pawn_square) != piece::pawn ||
+                            b.color_at(moved_pawn_square) != moved_pawn_color) {
+                            return make_error(error::invalid_enpassant_target, field);
+                        }
+                        state.enpassant = target;
                     }
                     break;
                 }
@@ -116,21 +156,15 @@ namespace chesslib::fen {
                     auto const* end = std::to_address(field.end());
                     auto [ptr, ec] = std::from_chars(std::to_address(field.begin()), end, state.halfmove_clock);
                     if (ec != std::errc{} || ptr != end) {
-                        return tl::unexpected(parse_error{
-                            .reason = error::invalid_halfmove_clock,
-                            .input  = std::string{field.begin(), field.end()}
-                        });
+                        return make_error(error::invalid_halfmove_clock, field);
                     }
                     break;
                 }
                 case fen_record::fullmove_number: {
                     auto const* end = std::to_address(field.end());
                     auto [ptr, ec] = std::from_chars(std::to_address(field.begin()), end, state.fullmove_number);
-                    if (ec != std::errc{} || ptr != end) {
-                        return tl::unexpected(parse_error{
-                            .reason = error::invalid_fullmove_number,
-                            .input  = std::string{field.begin(), field.end()}
-                        });
+                    if (ec != std::errc{} || ptr != end || state.fullmove_number == 0) {
+                        return make_error(error::invalid_fullmove_number, field);
                     }
                     break;
                 }
@@ -148,6 +182,7 @@ namespace chesslib::fen {
                 .input  = std::string{fen}
             });
         }
+        b.hash_ = zobrist::hasher::recompute(b);
         return b;
     }
 

@@ -2,8 +2,10 @@
 #define CHESSLIB_BOARD_0X88_HPP
 
 #include <array>
+#include <utility>
 
 #include "encoding.hpp"
+#include "chesslib/core/zobrist.hpp"
 #include "chesslib/util/fen.hpp"
 
 namespace me = magic_enum;
@@ -67,20 +69,24 @@ class board
     static constexpr std::array queen_offsets {-17, -16, -15, -1, +1, +15, +16, +17};
     static constexpr std::array king_offsets  {-17, -16, -15, -1, +1, +15, +16, +17};
 
-    board() = default;
+    board() {
+        hash_ = zobrist::hasher::recompute(*this);
+    }
 
     explicit board(std::string_view fen) {
         *this = fen::read_or_throw(fen);
     }
 
     auto operator==(board const& b) const -> bool {
-        return state_ == b.state_ && pieces_ == b.pieces_ && colors_ == b.colors_;
+        return state_ == b.state_ && pieces_ == b.pieces_ && colors_ == b.colors_ && hash_ == b.hash_;
     }
 
     auto reset() -> void
     {
         pieces_ = encoding::default_pieces();
         colors_ = encoding::default_colors();
+        state_  = board_state{};
+        hash_   = zobrist::hasher::recompute(*this);
     }
 
     auto clear() -> void
@@ -89,23 +95,29 @@ class board
             pieces_[i] = piece::none;
             colors_[i] = color::none;
         }
+        state_ = board_state{
+            .side            = side_to_move::white,
+            .castling        = static_cast<castling_rights>(0),
+            .enpassant       = square::none,
+            .white_king      = square::none,
+            .black_king      = square::none,
+            .halfmove_clock  = 0,
+            .fullmove_number = 1,
+        };
+        hash_ = zobrist::hasher::recompute(*this);
     }
 
     auto is_attacked(int i, side_to_move s) const -> bool
     {
-        // if a piece of the same color is on square i,
-        // then return false (cannot attack our own piece)
         using enum piece;
-
-        // pawn attacks
         auto const pawn_capture_offsets = s == side_to_move::white
             ? std::array{coord::sw, coord::se}
             : std::array{coord::nw, coord::ne};
-
         return attacked_by<pawn>         (pawn_capture_offsets, i, s) ||
                attacked_by<knight>       (knight_offsets, i, s)       ||
                attacked_by<bishop, queen>(bishop_offsets, i, s)       ||
-               attacked_by<rook, queen>  (rook_offsets, i, s);
+               attacked_by<rook,   queen>(rook_offsets,   i, s)       ||
+               attacked_by<king>         (king_offsets,   i, s);
     }
 
     auto is_attacked(square sq, side_to_move s) const -> bool
@@ -158,6 +170,29 @@ class board
     auto white_to_move() const -> bool { return state_.side == side_to_move::white; }
     auto black_to_move() const -> bool { return state_.side == side_to_move::black; }
 
+    // Low-level mutation used by move_maker. No invariant checking; caller is responsible.
+    auto place(square sq, piece p, color c) -> void {
+        auto const i = static_cast<size_t>(me::enum_integer(sq));
+        pieces_[i] = p; colors_[i] = c;
+    }
+    auto remove(square sq) -> void {
+        auto const i = static_cast<size_t>(me::enum_integer(sq));
+        pieces_[i] = piece::none; colors_[i] = color::none;
+    }
+    auto move_piece(square src, square tgt) -> void {
+        auto const s = static_cast<size_t>(me::enum_integer(src));
+        auto const t = static_cast<size_t>(me::enum_integer(tgt));
+        pieces_[t] = std::exchange(pieces_[s], piece::none);
+        colors_[t] = std::exchange(colors_[s], color::none);
+    }
+    auto swap_squares(square a, square b) -> void {
+        auto const ai = static_cast<size_t>(me::enum_integer(a));
+        auto const bi = static_cast<size_t>(me::enum_integer(b));
+        std::swap(pieces_[ai], pieces_[bi]);
+        std::swap(colors_[ai], colors_[bi]);
+    }
+    auto set_state(board_state const& s) -> void { state_ = s; }
+
     // printing functions
     auto print(std::string indent = "") const -> void;
 
@@ -165,21 +200,13 @@ class board
     static auto diff(board const& a, board const& b) -> void;
 
     private:
-    auto swap(u8 src, u8 tgt) -> void {
-        std::swap(pieces_[src], pieces_[tgt]);
-        std::swap(colors_[src], colors_[tgt]);
-    }
-
-    auto do_move(u8 src, u8 tgt) -> void {
-        pieces_[tgt] = std::exchange(pieces_[src], piece::none);
-        colors_[tgt] = std::exchange(colors_[src], color::none);
-    }
-
     std::array<piece, encoding::length> pieces_ {encoding::default_pieces()};
     std::array<color, encoding::length> colors_ {encoding::default_colors()};
+    hash hash_ {0};
 
     friend struct move_maker;
     friend struct move_generator;
+    friend struct zobrist::hasher;
     friend auto fen::read(std::string_view fen) -> tl::expected<board, fen::parse_error>;
     friend auto fen::write(board const& b) -> std::string;
 };  // board
@@ -197,6 +224,7 @@ struct move_maker {
     private:
     board& board_;
     board_state state_;
+    hash hash_{};
     move move_;
     std::tuple<u8, piece, color> capture_info_{square::none, piece::none, color::none};
 };

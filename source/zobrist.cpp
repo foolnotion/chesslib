@@ -226,6 +226,10 @@ static constexpr std::mdspan<uint64_t const, std::extents<int, n_enpassant>>    
 static constexpr auto                                                                          side{11001561807031406013UL};
 
 auto hasher::operator()(chesslib::board const& b) const -> uint64_t {
+    return b.hash_;
+}
+
+auto hasher::recompute(chesslib::board const& b) -> uint64_t {
     auto h{0UL};
 
     auto const& s = b.state();
@@ -258,6 +262,10 @@ auto hasher::operator()(chesslib::board const& b) const -> uint64_t {
 
 auto hasher::piece(int i, int j, int k) -> uint64_t {
     return ptable(i, j, k);
+}
+
+auto hasher::castling(int rights) -> uint64_t {
+    return ctable(rights);
 }
 
 auto hasher::enpassant_file(int file) -> uint64_t {

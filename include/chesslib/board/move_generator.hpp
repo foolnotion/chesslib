@@ -14,7 +14,7 @@ namespace helpers {
 
 struct move_generator {
 
-    board& b;
+    board const& b;
 
     auto ready_to_promote(auto i) const {
         return b.white_to_move() ? (i >= square::a7 && i <= square::h7)
@@ -151,53 +151,53 @@ struct move_generator {
 
                 case piece::king: {
                     // regular king moves + castling
-                    // castling rights flags
-                    // temporarily remove the king so that is_attacked() sees through it when
-                    // checking castling path squares (e.g. a rook on a8 still attacks g8 even
-                    // with the king on e8 blocking the naive ray walk)
-                    b.pieces_[i] = piece::none;
-                    auto const restore_king = scope_exit{[&]() -> void { b.pieces_[i] = p; }};
+                    // Temporarily remove the king from the board so that is_attacked() correctly
+                    // sees through it when checking castling path squares — e.g. a rook on a8
+                    // still attacks g8 even with the king on e8 blocking the ray.
+                    // The mutation is local and fully reversed before leaving this scope.
+                    // move_generator is a friend of board specifically to allow this.
+                    auto& bm = const_cast<board&>(b);
+                    bm.pieces_[i] = piece::none;
+                    auto const restore_king = scope_exit{[&]() -> void { bm.pieces_[i] = p; }};
+
                     auto other_side = side ? side_to_move::black : side_to_move::white;
 
                     if (!in_check) {
                         auto [kingside, queenside] = side ? std::tuple{castling_rights::wk, castling_rights::wq}
                                                         : std::tuple{castling_rights::bk, castling_rights::bq};
 
-                        // if I have the right to castle, that means that the king and rook are on the initial squares
-                        // but i still need to check two things:
-                        // 1. the path is clear (no pieces occupy the squares between king and rook)
-                        // 2. the king does not move through check
+                        // Castling requires the king on its start square, the rook present on its
+                        // start square, a clear path, and the king not moving through check.
+                        // We verify king and rook placement explicitly rather than trusting the
+                        // castling-rights bits alone, so malformed FENs cannot produce illegal moves.
 
-                        // in order to correctly detect attacks from pieces whose "ray" is blocked by the king itself,
-                        // we remove the king from the board before checking for attacks, for example:
-                        // ♜-o-o-o-♔-x
-                        // (here, the square marked "x" would still be in check from the rook)
-
-
-                        // check if the king is on the initial square
-                        // can I castle on the king side?
-                        if (me::enum_integer(castling & kingside) != 0) {
-                            auto path = side ? std::array{square::f1, square::g1}
-                                             : std::array{square::f8, square::g8};
-
-                            // check if there is something in the way or the square is attacked
-                            if (std::ranges::all_of(path, [&](auto j) -> bool {
-                                return b.piece_at(j) == piece::none && !b.is_attacked(j, other_side);
-                            })) {
-                                auto j = me::enum_integer(path.back());
-                                add_move(i, j, 0, 0, 0, 0, 1);
+                        auto const expected_king = side ? square::e1 : square::e8;
+                        if (static_cast<square>(i) == expected_king) {
+                            if (me::enum_integer(castling & kingside) != 0) {
+                                auto const rook_sq = side ? square::h1 : square::h8;
+                                auto const path    = side ? std::array{square::f1, square::g1}
+                                                          : std::array{square::f8, square::g8};
+                                if (b.piece_at(rook_sq) == piece::rook &&
+                                    b.color_at(rook_sq) == mycolor &&
+                                    std::ranges::all_of(path, [&](auto j) -> bool {
+                                        return b.piece_at(j) == piece::none && !b.is_attacked(j, other_side);
+                                    })) {
+                                    add_move(i, me::enum_integer(path.back()), 0, 0, 0, 0, 1);
+                                }
                             }
-                        }
-                        if (me::enum_integer(castling & queenside) != 0) {
-                            auto path = side ? std::array{square::d1, square::c1}
-                                            : std::array{square::d8, square::c8};
-
-                            auto rook_can_move = b.piece_at(side ? square::b1 : square::b8) == piece::none;
-                            if (rook_can_move && std::ranges::all_of(path, [&](auto j) -> bool {
-                                return b.piece_at(j) == piece::none && !b.is_attacked(j, other_side);
-                            })) {
-                                auto j = me::enum_integer(path.back());
-                                add_move(i, j, 0, 0, 0, 0, 1);
+                            if (me::enum_integer(castling & queenside) != 0) {
+                                auto const rook_sq      = side ? square::a1 : square::a8;
+                                auto const path         = side ? std::array{square::d1, square::c1}
+                                                               : std::array{square::d8, square::c8};
+                                auto const rook_can_move = b.piece_at(side ? square::b1 : square::b8) == piece::none;
+                                if (b.piece_at(rook_sq) == piece::rook &&
+                                    b.color_at(rook_sq) == mycolor &&
+                                    rook_can_move &&
+                                    std::ranges::all_of(path, [&](auto j) -> bool {
+                                        return b.piece_at(j) == piece::none && !b.is_attacked(j, other_side);
+                                    })) {
+                                    add_move(i, me::enum_integer(path.back()), 0, 0, 0, 0, 1);
+                                }
                             }
                         }
                     } // if in_check
@@ -237,14 +237,29 @@ inline auto legal_moves(board& b) -> move_list {
     return legal;
 }
 
+inline auto legal_moves(board const& b) -> move_list {
+    board tmp = b;
+    return legal_moves(tmp);
+}
+
 // True when the side to move has no legal moves and their king is in check.
 inline auto is_checkmate(board& b) -> bool {
     return b.is_king_in_check() && legal_moves(b).empty();
 }
 
+inline auto is_checkmate(board const& b) -> bool {
+    board tmp = b;
+    return is_checkmate(tmp);
+}
+
 // True when the side to move has no legal moves but their king is not in check.
 inline auto is_stalemate(board& b) -> bool {
     return !b.is_king_in_check() && legal_moves(b).empty();
+}
+
+inline auto is_stalemate(board const& b) -> bool {
+    board tmp = b;
+    return is_stalemate(tmp);
 }
 
 }  // namespace chesslib

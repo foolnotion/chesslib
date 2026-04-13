@@ -171,17 +171,17 @@ TEST_CASE("fen export", "[library]")
         "3rr3/1p1kbQ2/p1p1n3/q2p1Bp1/3P4/2N1P1P1/PP4P1/4RRK1 w - - 0 1",
         "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
         "8/7p/8/7k/2K1N3/6Q1/5B2/8 w - - 0 1",
-        "8/8/8/8/3K4/8/8/8 w - - 0 1",
-        "5rr1/8/8/8/8/8/q3PP2/R3K2R w - - 0 1",
-        "5rr1/8/8/8/8/5p2/q3PP2/R3K2R w - - 0 1",
-        "8/8/2r3n1/8/4B3/5N2/2R3P1/8 w - - 0 1",
-        "8/8/2r3n1/8/4B3/5n2/2q3p1/8 w - - 0 1",
-        "8/8/2r3n1/8/4B3/5n2/2q3p1/8 b - - 0 1",
+        "k7/8/8/8/3K4/8/8/8 w - - 0 1",
+        "k4rr1/8/8/8/8/8/q3PP2/R3K2R w - - 0 1",
+        "k4rr1/8/8/8/8/5p2/q3PP2/R3K2R w - - 0 1",
+        "8/k7/2r3n1/8/4B3/5N2/2R3P1/K7 w - - 0 1",
+        "8/k7/2r3n1/8/4B3/5n2/2q3p1/K7 w - - 0 1",
+        "8/k7/2r3n1/8/4B3/5n2/2q3p1/K7 b - - 0 1",
         "5R2/k5r1/P2p4/1K1Np3/1P2P1p1/8/8/1r6 w - - 0 1",
         "5R2/k5r1/P2p4/1K1Np3/1P2P1p1/8/8/1r6 b - - 0 1",
         "8/4k3/8/8/8/8/r6r/4K3 w - - 0 1",
         "8/4k3/8/8/8/8/r6r/4K3 b - - 0 1",
-        "8/8/8/8/8/8/8/4K2R w K - 0 1",
+        "k7/8/8/8/8/8/8/4K2R w K - 0 1",
         "8/8/8/3K4/8/4k3/8/8 w - - 0 1",
         "8/8/8/3K4/8/4k3/8/8 b - - 0 1",
         "8/4k3/8/8/8/8/r6r/R3K2R w KQ - 0 1"
@@ -221,7 +221,7 @@ TEST_CASE("move generator", "[library]")
     SECTION("pawn moves")
     {
         constexpr std::array cases = {
-            "8/8/8/8/3pP3/8/8/8 b - e3 0 1"
+            "8/k7/8/8/3pP3/8/8/K7 b - e3 0 1"
         };
 
         check_test_cases(cases, piece::pawn);
@@ -239,8 +239,8 @@ TEST_CASE("move generator", "[library]")
     {
         constexpr std::array cases = {
             "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
-            "8/8/8/3B4/8/8/8/8 w - - 0 1",
-            "P5P1/8/8/3B4/8/5P2/P7/8 w - - 0 1",
+            "8/k7/8/3B4/8/8/8/K7 w - - 0 1",
+            "P5P1/k7/8/3B4/8/5P2/P7/K7 w - - 0 1",
         };
         check_test_cases(cases, piece::bishop);
     }
@@ -248,7 +248,7 @@ TEST_CASE("move generator", "[library]")
     SECTION("rook moves")
     {
         constexpr std::array cases = {
-            "8/8/8/3R4/8/8/8/8 w - - 0 1",
+            "8/k7/8/3R4/8/8/8/K7 w - - 0 1",
             "8/4k3/8/8/8/8/r6r/R3K2R w KQ - 0 1"
         };
         check_test_cases(cases, piece::rook);
@@ -258,8 +258,8 @@ TEST_CASE("move generator", "[library]")
     {
         constexpr std::array cases = {
             "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
-            "8/8/8/3Q4/8/8/8/8 w - - 0 1",
-            "3P4/1p3P2/8/P2Q2p1/8/1p3P2/3p4/8 w - - 0 1"
+            "8/k7/8/3Q4/8/8/8/K7 w - - 0 1",
+            "3P3k/1p3P2/8/P2Q2p1/8/1p3P2/3p4/7K w - - 0 1"
         };
         check_test_cases(cases, piece::queen);
     }
@@ -267,7 +267,7 @@ TEST_CASE("move generator", "[library]")
     SECTION("king moves")
     {
         constexpr std::array cases = {
-            "8/8/8/8/8/8/8/4K2R w K - 0 1",
+            "k7/8/8/8/8/8/8/4K2R w K - 0 1",
             "8/8/8/3K4/8/4k3/8/8 w - - 0 1",
             "8/8/8/3K4/8/4k3/8/8 b - - 0 1",
             "8/4k3/8/8/8/8/r6r/R3K2R w KQ - 0 1"
@@ -284,12 +284,12 @@ TEST_CASE("attacked squares", "[library]")
         "3rr3/1p1kbQ2/p1p1n3/q2p1Bp1/3P4/2N1P1P1/PP4P1/4RRK1 w - - 0 1",
         "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
         "8/7p/8/7k/2K1N3/6Q1/5B2/8 w - - 0 1",
-        "8/8/8/8/3K4/8/8/8 w - - 0 1",
-        "5rr1/8/8/8/8/8/q3PP2/R3K2R w - - 0 1",
-        "5rr1/8/8/8/8/5p2/q3PP2/R3K2R w - - 0 1",
-        "8/8/2r3n1/8/4B3/5N2/2R3P1/8 w - - 0 1",
-        "8/8/2r3n1/8/4B3/5n2/2q3p1/8 w - - 0 1",
-        "8/8/2r3n1/8/4B3/5n2/2q3p1/8 b - - 0 1",
+        "k7/8/8/8/3K4/8/8/8 w - - 0 1",
+        "k4rr1/8/8/8/8/8/q3PP2/R3K2R w - - 0 1",
+        "k4rr1/8/8/8/8/5p2/q3PP2/R3K2R w - - 0 1",
+        "8/k7/2r3n1/8/4B3/5N2/2R3P1/K7 w - - 0 1",
+        "8/k7/2r3n1/8/4B3/5n2/2q3p1/K7 w - - 0 1",
+        "8/k7/2r3n1/8/4B3/5n2/2q3p1/K7 b - - 0 1",
         "5R2/k5r1/P2p4/1K1Np3/1P2P1p1/8/8/1r6 w - - 0 1",
         "5R2/k5r1/P2p4/1K1Np3/1P2P1p1/8/8/1r6 b - - 0 1",
         "8/4k3/8/8/8/8/r6r/4K3 w - - 0 1",
@@ -302,6 +302,18 @@ TEST_CASE("attacked squares", "[library]")
         helpers::print(board, attacked, "▢", board.side() == side_to_move::white ? fmt::color::red : fmt::color::blue);
         fmt::print("\n");
     }
+}
+
+TEST_CASE("king attacks are reported", "[library]")
+{
+    board b{"8/8/8/8/8/8/4k3/4K3 w - - 0 1"};
+
+    REQUIRE(b.is_attacked(square::d1, side_to_move::black));
+    REQUIRE(b.is_attacked(square::e1, side_to_move::black));
+    REQUIRE(b.is_attacked(square::f1, side_to_move::black));
+    REQUIRE(b.is_attacked(square::d2, side_to_move::black));
+    REQUIRE(b.is_attacked(square::f2, side_to_move::black));
+    REQUIRE(!b.is_attacked(square::h1, side_to_move::black));
 }
 
 TEST_CASE("parse en-passant", "[library]")
@@ -429,6 +441,8 @@ TEST_CASE("zobrist", "[library]")
     chesslib::board b{fen};
     zobrist::hasher hasher{};
 
+    REQUIRE(hasher(b) == zobrist::hasher::recompute(b));
+
     auto check_move = [&](auto const m) {
         // what is the diff between current board and previous board?
         // how can I use this diff to incrementally update the zobrist hash?
@@ -467,6 +481,7 @@ TEST_CASE("zobrist", "[library]")
 
         INFO("Check intermediate state (move made, incremental hash update)");
         REQUIRE(h1 == hasher(b));
+        REQUIRE(hasher(b) == zobrist::hasher::recompute(b));
 
         mm.undo();
 
@@ -487,6 +502,7 @@ TEST_CASE("zobrist", "[library]")
 
         INFO("Check end state (move made and undone, 2xincremental hash update");
         REQUIRE(h1 == hasher(b));
+        REQUIRE(hasher(b) == zobrist::hasher::recompute(b));
     };
 
     SECTION("a2a4") {
@@ -528,6 +544,7 @@ TEST_CASE("zobrist", "[library]")
                 auto const before = h(b);
                 move_maker mm{b, m};
                 mm.make();
+                REQUIRE(h(b) == zobrist::hasher::recompute(b));
                 mm.undo();
                 REQUIRE(h(b) == before);
             }
@@ -699,6 +716,23 @@ TEST_CASE("checkmate and stalemate", "[library]")
         REQUIRE(!is_checkmate(b));
         REQUIRE(!is_stalemate(b));
     }
+}
+
+TEST_CASE("const query APIs", "[library]")
+{
+    board mutable_board;
+    board const& b = mutable_board;
+
+    auto const moves = legal_moves(b);
+    REQUIRE(moves.size() == 20);
+
+    auto const uci_move = uci::from_string(b, "e2e4");
+    REQUIRE(uci_move.has_value());
+    REQUIRE(san::to_string(b, *uci_move) == "e4");
+
+    auto const san_move = san::from_string(b, "Nf3");
+    REQUIRE(san_move.has_value());
+    REQUIRE(san_move->source_square == square::g1);
 }
 
 TEST_CASE("uci", "[library]")

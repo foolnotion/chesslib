@@ -17,7 +17,7 @@ auto to_string(move m) -> std::string;
 // Parse a UCI string into a legal move on board b.
 // Returns an error string if the move string is malformed or not legal in b.
 // Takes board& because legal move generation requires make/undo internally.
-auto from_string(board& b, std::string_view s) -> tl::expected<move, std::string>;
+auto from_string(board const& b, std::string_view s) -> tl::expected<move, std::string>;
 
 } // namespace uci
 } // namespace chesslib

@@ -30,7 +30,7 @@
             inherit system;
             overlays = [ foolnotion.overlay ];
           };
-          stdenv = pkgs.llvmPackages_20.stdenv;
+          stdenv = pkgs.llvmPackages_21.stdenv;
         in
         rec {
           devShells.default = stdenv.mkDerivation {
@@ -82,15 +82,13 @@
             cmakeBuildType = "Release";
 
             buildInputs = with pkgs; [
-              cpptrace
               fmt
               gch-small-vector
               libassert
-              libdwarf
               magic-enum
               mdspan
+              tl-expected
               unordered_dense
-              zstd
             ];
           };
         };
