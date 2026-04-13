@@ -72,8 +72,8 @@ auto move_maker::make() -> void {
     auto state = state_;
     auto& castling  = state.castling;
     auto& enpassant = state.enpassant;
-    auto& hash = board_.hash_;
-    hash_ = board_.hash_;
+    hash_ = board_.hash();
+    u64 h = hash_;
 
     auto const white_to_move = board_.white_to_move();
 
@@ -91,12 +91,12 @@ auto move_maker::make() -> void {
     auto const piece_index = static_cast<int>(p);
 
     if (static_cast<u8>(castling) != 0) {
-        hash ^= zobrist::hasher::castling(static_cast<int>(castling));
+        h ^= zobrist::hasher::castling(static_cast<int>(castling));
     }
     if (enpassant != square::none) {
-        hash ^= zobrist::hasher::enpassant_file(coord::file(enpassant));
+        h ^= zobrist::hasher::enpassant_file(coord::file(enpassant));
     }
-    hash ^= zobrist::hasher::piece(color_index, piece_index, src);
+    h ^= zobrist::hasher::piece(color_index, piece_index, src);
 
     // handle capture
     if (move_.capture) {
@@ -108,7 +108,7 @@ auto move_maker::make() -> void {
 
         auto const captured_piece = board_.piece_at(sq);
         auto const captured_color = board_.color_at(sq);
-        hash ^= zobrist::hasher::piece(static_cast<int>(captured_color), static_cast<int>(captured_piece), sq);
+        h ^= zobrist::hasher::piece(static_cast<int>(captured_color), static_cast<int>(captured_piece), sq);
 
         if (board_.piece_at(sq) == piece::rook) {
             // capturing a rook removes the corresponding castling right
@@ -131,7 +131,7 @@ auto move_maker::make() -> void {
     }
 
     auto const piece_on_target = move_.promotion ? static_cast<piece>(move_.promotion) : p;
-    hash ^= zobrist::hasher::piece(color_index, static_cast<int>(piece_on_target), tgt);
+    h ^= zobrist::hasher::piece(color_index, static_cast<int>(piece_on_target), tgt);
 
     auto const white_no_castling = ~(castling_rights::wk | castling_rights::wq);
     auto const black_no_castling = ~(castling_rights::bk | castling_rights::bq);
@@ -140,23 +140,23 @@ auto move_maker::make() -> void {
         castling &= (white_to_move ? white_no_castling : black_no_castling);
         switch (tgt) {
             case square::g1:
-                hash ^= zobrist::hasher::piece(static_cast<int>(color::white), static_cast<int>(piece::rook), square::h1);
-                hash ^= zobrist::hasher::piece(static_cast<int>(color::white), static_cast<int>(piece::rook), square::f1);
+                h ^= zobrist::hasher::piece(static_cast<int>(color::white), static_cast<int>(piece::rook), square::h1);
+                h ^= zobrist::hasher::piece(static_cast<int>(color::white), static_cast<int>(piece::rook), square::f1);
                 board_.swap_squares(square::h1, square::f1);
                 break;
             case square::g8:
-                hash ^= zobrist::hasher::piece(static_cast<int>(color::black), static_cast<int>(piece::rook), square::h8);
-                hash ^= zobrist::hasher::piece(static_cast<int>(color::black), static_cast<int>(piece::rook), square::f8);
+                h ^= zobrist::hasher::piece(static_cast<int>(color::black), static_cast<int>(piece::rook), square::h8);
+                h ^= zobrist::hasher::piece(static_cast<int>(color::black), static_cast<int>(piece::rook), square::f8);
                 board_.swap_squares(square::h8, square::f8);
                 break;
             case square::c1:
-                hash ^= zobrist::hasher::piece(static_cast<int>(color::white), static_cast<int>(piece::rook), square::a1);
-                hash ^= zobrist::hasher::piece(static_cast<int>(color::white), static_cast<int>(piece::rook), square::d1);
+                h ^= zobrist::hasher::piece(static_cast<int>(color::white), static_cast<int>(piece::rook), square::a1);
+                h ^= zobrist::hasher::piece(static_cast<int>(color::white), static_cast<int>(piece::rook), square::d1);
                 board_.swap_squares(square::a1, square::d1);
                 break;
             case square::c8:
-                hash ^= zobrist::hasher::piece(static_cast<int>(color::black), static_cast<int>(piece::rook), square::a8);
-                hash ^= zobrist::hasher::piece(static_cast<int>(color::black), static_cast<int>(piece::rook), square::d8);
+                h ^= zobrist::hasher::piece(static_cast<int>(color::black), static_cast<int>(piece::rook), square::a8);
+                h ^= zobrist::hasher::piece(static_cast<int>(color::black), static_cast<int>(piece::rook), square::d8);
                 board_.swap_squares(square::a8, square::d8);
                 break;
             default: break;
@@ -220,12 +220,13 @@ auto move_maker::make() -> void {
     board_.set_state(state);
 
     if (static_cast<u8>(castling) != 0) {
-        hash ^= zobrist::hasher::castling(static_cast<int>(castling));
+        h ^= zobrist::hasher::castling(static_cast<int>(castling));
     }
     if (enpassant != square::none) {
-        hash ^= zobrist::hasher::enpassant_file(coord::file(enpassant));
+        h ^= zobrist::hasher::enpassant_file(coord::file(enpassant));
     }
-    hash ^= zobrist::hasher::side_to_move();
+    h ^= zobrist::hasher::side_to_move();
+    board_.set_hash(h);
 }
 
 auto move_maker::undo() -> void {
@@ -253,7 +254,7 @@ auto move_maker::undo() -> void {
     }
 
     board_.set_state(state_);
-    board_.hash_ = hash_;
+    board_.set_hash(hash_);
     capture_info_ = {square::none, piece::none, color::none};
     state_        = {};
     hash_         = 0;

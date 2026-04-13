@@ -192,6 +192,8 @@ class board
         std::swap(colors_[ai], colors_[bi]);
     }
     auto set_state(board_state const& s) -> void { state_ = s; }
+    auto hash()                          const -> u64  { return hash_; }
+    auto set_hash(u64 h)                       -> void { hash_ = h; }
 
     // printing functions
     auto print(std::string indent = "") const -> void;
@@ -202,9 +204,8 @@ class board
     private:
     std::array<piece, encoding::length> pieces_ {encoding::default_pieces()};
     std::array<color, encoding::length> colors_ {encoding::default_colors()};
-    hash hash_ {0};
+    u64 hash_ {0};
 
-    friend struct move_maker;
     friend struct move_generator;
     friend struct zobrist::hasher;
     friend auto fen::read(std::string_view fen) -> tl::expected<board, fen::parse_error>;
