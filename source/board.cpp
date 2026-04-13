@@ -64,51 +64,52 @@ auto board::diff(board const& a, board const& b) -> void {
 }
 
 auto move_maker::make() -> void {
-    auto& state = board_.state_;
+    // save a copy of the pre-move state for undo()
+    state_ = board_.state();
+
+    // work on a mutable local copy; commit via set_state() at the end
+    auto state = state_;
     auto& castling  = state.castling;
     auto& enpassant = state.enpassant;
 
-    // make a copy of the old state
-    state_ = board_.state_;
-
-    auto& pieces = board_.pieces_;
-    auto& colors = board_.colors_;
     auto const white_to_move = board_.white_to_move();
 
-    auto src = move_.source_square;
-    auto tgt = move_.target_square;
+    // move_ stores raw 0x88 indices as u8; cast to square for the public API
+    auto const src = static_cast<square>(move_.source_square);
+    auto const tgt = static_cast<square>(move_.target_square);
+    auto const src_i = static_cast<int>(move_.source_square);
+    auto const tgt_i = static_cast<int>(move_.target_square);
 
     // get the piece that is currently moving
     auto [p, c] = board_[src];
     ASSERT(p != piece::none);
 
-    // swap target and destination squares & colors
+    // handle capture
     if (move_.capture) {
-        auto sq = move_.enpassant
-            ? enpassant + (white_to_move ? coord::so : coord::no)
+        auto const sq = move_.enpassant
+            ? static_cast<square>(me::enum_integer(enpassant) + (white_to_move ? coord::so : coord::no))
             : tgt;
         ASSERT(board_.piece_at(sq) != piece::none);
-        capture_info_ = {static_cast<u8>(sq), board_.piece_at(sq), board_.color_at(sq)};
+        capture_info_ = {static_cast<u8>(me::enum_integer(sq)), board_.piece_at(sq), board_.color_at(sq)};
 
         if (board_.piece_at(sq) == piece::rook) {
-            // capturing a rook removes castling rights
+            // capturing a rook removes the corresponding castling right
             if (white_to_move) {
-                if (tgt == square::h8) { state.castling &= ~castling_rights::bk; }
-                if (tgt == square::a8) { state.castling &= ~castling_rights::bq; }
+                if (tgt == square::h8) { castling &= ~castling_rights::bk; }
+                if (tgt == square::a8) { castling &= ~castling_rights::bq; }
             } else {
-                if (tgt == square::h1) { state.castling &= ~castling_rights::wk; }
-                if (tgt == square::a1) { state.castling &= ~castling_rights::wq; }
+                if (tgt == square::h1) { castling &= ~castling_rights::wk; }
+                if (tgt == square::a1) { castling &= ~castling_rights::wq; }
             }
         }
 
-        pieces[static_cast<size_t>(sq)] = piece::none;
-        colors[static_cast<size_t>(sq)] = color::none;
+        board_.remove(sq);
     }
 
-    board_.do_move(src, tgt);
+    board_.move_piece(src, tgt);
 
     if (move_.promotion) {
-        pieces[tgt] = static_cast<piece>(move_.promotion);
+        board_.place(tgt, static_cast<piece>(move_.promotion), c);
     }
 
     auto const white_no_castling = ~(castling_rights::wk | castling_rights::wq);
@@ -116,11 +117,11 @@ auto move_maker::make() -> void {
 
     if (move_.castling) {
         castling &= (white_to_move ? white_no_castling : black_no_castling);
-        switch(tgt) {
-            case square::g1: board_.swap(square::h1, square::f1); break;
-            case square::g8: board_.swap(square::h8, square::f8); break;
-            case square::c1: board_.swap(square::a1, square::d1); break;
-            case square::c8: board_.swap(square::a8, square::d8); break;
+        switch (tgt) {
+            case square::g1: board_.swap_squares(square::h1, square::f1); break;
+            case square::g8: board_.swap_squares(square::h8, square::f8); break;
+            case square::c1: board_.swap_squares(square::a1, square::d1); break;
+            case square::c8: board_.swap_squares(square::a8, square::d8); break;
             default: break;
         }
     }
@@ -131,32 +132,32 @@ auto move_maker::make() -> void {
             // always set the en-passant target square on a double pawn push so that
             // FEN export matches the spec and position hashes are consistent with
             // external tools regardless of whether an enemy pawn can capture
-            if (std::abs(tgt-src) == coord::nn) {
+            if (std::abs(tgt_i - src_i) == coord::nn) {
                 auto const offset = white_to_move ? coord::no : coord::so;
-                enpassant = static_cast<square>(src + offset);
+                enpassant = static_cast<square>(src_i + offset);
             }
             break;
         }
-        // set the castle flags if rook or king move
+        // set the castling flags if rook or king move
         case piece::rook: {
-            switch(src) {
-                case square::h1: castling &= ~(castling_rights::wk); break;
-                case square::a1: castling &= ~(castling_rights::wq); break;
-                case square::h8: castling &= ~(castling_rights::bk); break;
-                case square::a8: castling &= ~(castling_rights::bq); break;
+            switch (src) {
+                case square::h1: castling &= ~castling_rights::wk; break;
+                case square::a1: castling &= ~castling_rights::wq; break;
+                case square::h8: castling &= ~castling_rights::bk; break;
+                case square::a8: castling &= ~castling_rights::bq; break;
                 default: break;
             }
             break;
         }
         case piece::king: {
-            switch(src) {
+            switch (src) {
                 case square::e1: castling &= white_no_castling; break;
                 case square::e8: castling &= black_no_castling; break;
                 default: break;
             }
             // update king position
             auto& k = white_to_move ? state.white_king : state.black_king;
-            k = static_cast<square>(tgt);
+            k = tgt;
             break;
         }
         default: {
@@ -178,35 +179,35 @@ auto move_maker::make() -> void {
     if (!white_to_move) {
         state.fullmove_number++;
     }
+
+    board_.set_state(state);
 }
 
 auto move_maker::undo() -> void {
-    auto src = move_.source_square;
-    auto tgt = move_.target_square;
-    board_.swap(src, tgt);
+    auto const src = static_cast<square>(move_.source_square);
+    auto const tgt = static_cast<square>(move_.target_square);
+    board_.swap_squares(src, tgt);
 
-    if(move_.promotion) {
-        board_.pieces_[src] = piece::pawn;
+    if (move_.promotion) {
+        board_.place(src, piece::pawn, board_.color_at(src));
     }
 
     if (move_.castling) {
-        switch(tgt) {
-            case square::g1: board_.swap(square::h1, square::f1); break;
-            case square::c1: board_.swap(square::a1, square::d1); break;
-            case square::g8: board_.swap(square::h8, square::f8); break;
-            case square::c8: board_.swap(square::a8, square::d8); break;
+        switch (tgt) {
+            case square::g1: board_.swap_squares(square::h1, square::f1); break;
+            case square::c1: board_.swap_squares(square::a1, square::d1); break;
+            case square::g8: board_.swap_squares(square::h8, square::f8); break;
+            case square::c8: board_.swap_squares(square::a8, square::d8); break;
             default: break;
         }
     }
 
     if (move_.capture) {
-        auto [s, p, c] = capture_info_;
-        board_.pieces_[s] = p;
-        board_.colors_[s] = c;
+        auto [s, cp, cc] = capture_info_;
+        board_.place(static_cast<square>(s), cp, cc);
     }
 
-    // restore old state
-    board_.state_ = state_;
+    board_.set_state(state_);
     capture_info_ = {square::none, piece::none, color::none};
     state_        = {};
 }
@@ -220,4 +221,5 @@ auto move_maker::check() -> bool {
     undo();
     return result;
 }
+
 }  // namespace chesslib
