@@ -58,18 +58,18 @@
               # deps
               catch2_3
               cpptrace
+              cxxopts
               fmt
               gch-small-vector
-              mdspan
-              nanobench
               libassert
               libdwarf
               magic-enum
+              mdspan
+              nanobench
               nlohmann_json
+              tl-expected
               unordered_dense
               zstd
-              gtl
-              tl-expected
             ];
           };
 
@@ -82,13 +82,17 @@
             cmakeBuildType = "Release";
 
             buildInputs = with pkgs; [
+              cpptrace
+              cxxopts
               fmt
               gch-small-vector
               libassert
+              libdwarf
               magic-enum
               mdspan
               tl-expected
               unordered_dense
+              zstd
             ];
           };
         };

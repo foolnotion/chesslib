@@ -15,6 +15,7 @@ endif()
 find_package(Catch2 CONFIG REQUIRED)
 include(Catch)
 find_package(nanobench CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 
 # ---- Tests ----
 
