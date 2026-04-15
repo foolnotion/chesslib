@@ -85,14 +85,17 @@
               cpptrace
               cxxopts
               fmt
-              gch-small-vector
               libassert
               libdwarf
-              magic-enum
               mdspan
+              zstd
+            ];
+
+            propagatedBuildInputs = with pkgs; [
+              gch-small-vector
+              magic-enum
               tl-expected
               unordered_dense
-              zstd
             ];
           };
         };
