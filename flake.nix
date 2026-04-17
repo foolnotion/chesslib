@@ -82,18 +82,15 @@
             cmakeBuildType = "Release";
 
             buildInputs = with pkgs; [
-              cpptrace
               cxxopts
-              fmt
-              libassert
-              libdwarf
-              mdspan
-              zstd
             ];
 
             propagatedBuildInputs = with pkgs; [
+              fmt
               gch-small-vector
+              libassert
               magic-enum
+              mdspan
               tl-expected
               unordered_dense
             ];
