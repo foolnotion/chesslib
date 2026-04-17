@@ -47,10 +47,15 @@ set(
 set_property(CACHE chesslib_INSTALL_CMAKEDIR PROPERTY TYPE PATH)
 mark_as_advanced(chesslib_INSTALL_CMAKEDIR)
 
+configure_file(
+    cmake/install-config.cmake.in
+    "${CMAKE_CURRENT_BINARY_DIR}/${package}Config.cmake"
+    @ONLY
+)
+
 install(
-    FILES cmake/install-config.cmake
+    FILES "${CMAKE_CURRENT_BINARY_DIR}/${package}Config.cmake"
     DESTINATION "${chesslib_INSTALL_CMAKEDIR}"
-    RENAME "${package}Config.cmake"
     COMPONENT chesslib_Development
 )
 
