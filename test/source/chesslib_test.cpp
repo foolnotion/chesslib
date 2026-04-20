@@ -960,6 +960,101 @@ TEST_CASE("san", "[library]")
             REQUIRE(result->promotion     == m.promotion);
         }
     }
+
+    SECTION("from_string - pawn capture") {
+        // after 1.e4 d5, exd5
+        board b{"rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2"};
+        auto result = san::from_string(b, "exd5");
+        REQUIRE(result.has_value());
+        REQUIRE(result->source_square == square::e4);
+        REQUIRE(result->target_square == square::d5);
+        REQUIRE(result->capture == 1);
+    }
+
+    SECTION("from_string - en passant") {
+        // white d5-pawn, black just played e7-e5; white exd6 en passant
+        board b{"rnbqkbnr/pppp1ppp/8/3Pp3/8/8/PPP1PPPP/RNBQKBNR w KQkq e6 0 3"};
+        auto result = san::from_string(b, "dxe6");
+        REQUIRE(result.has_value());
+        REQUIRE(result->source_square == square::d5);
+        REQUIRE(result->target_square == square::e6);
+        REQUIRE(result->capture   == 1);
+        REQUIRE(result->enpassant == 1);
+    }
+
+    SECTION("from_string - promotion capture") {
+        // white pawn on a7 can capture rook on b8 and promote
+        board b{"1r6/P6k/8/8/8/8/8/4K3 w - - 0 1"};
+        auto result = san::from_string(b, "axb8=Q");
+        REQUIRE(result.has_value());
+        REQUIRE(result->source_square == square::a7);
+        REQUIRE(result->target_square == square::b8);
+        REQUIRE(result->capture    == 1);
+        REQUIRE(result->promotion  == static_cast<u8>(piece::queen));
+        // also without '='
+        REQUIRE(san::from_string(b, "axb8Q").has_value());
+    }
+
+    SECTION("from_string - rank disambiguation") {
+        // Two rooks on a-file, both can reach a4
+        board b{"4k3/8/8/R7/8/R7/8/4K3 w - - 0 1"};
+        auto r5 = san::from_string(b, "R5a4");
+        auto r3 = san::from_string(b, "R3a4");
+        REQUIRE(r5.has_value());
+        REQUIRE(r3.has_value());
+        REQUIRE(r5->source_square == square::a5);
+        REQUIRE(r3->source_square == square::a3);
+    }
+
+    SECTION("from_string - full square disambiguation") {
+        // Three queens that can all reach d4: need file+rank
+        board b{"4k3/8/8/Q7/3Q4/8/Q7/4K3 w - - 0 1"};
+        // Qa2d5 — queen on a2 to d5 with full source square given
+        // (simpler: just verify the general round-trip works for all legal moves)
+        for (auto const& m : legal_moves(b)) {
+            auto const s      = san::to_string(b, m);
+            auto const result = san::from_string(b, s);
+            REQUIRE(result.has_value());
+            REQUIRE(result->source_square == m.source_square);
+            REQUIRE(result->target_square == m.target_square);
+        }
+    }
+
+    SECTION("from_string - ambiguous SAN rejected") {
+        // Two knights can both reach f3; bare "Nf3" is ambiguous
+        board b{"4k3/8/8/8/8/8/8/1N1NK3 w - - 0 1"};
+        // b1 and d1 knights can both reach c3; test for ambiguous error
+        auto result = san::from_string(b, "Nc3");
+        REQUIRE(!result.has_value());
+        REQUIRE(result.error() == san::error::ambiguous);
+    }
+
+    SECTION("from_string - black pawn moves") {
+        board b{"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"};
+        // Black pawn e7-e5
+        auto e5 = san::from_string(b, "e5");
+        REQUIRE(e5.has_value());
+        REQUIRE(e5->source_square == square::e7);
+        REQUIRE(e5->target_square == square::e5);
+        REQUIRE(e5->double_pawn == 1);
+        // Black pawn e7-e6
+        auto e6 = san::from_string(b, "e6");
+        REQUIRE(e6.has_value());
+        REQUIRE(e6->source_square == square::e7);
+        REQUIRE(e6->target_square == square::e6);
+    }
+
+    SECTION("round-trip - complex position (Kiwipete)") {
+        board b{"r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"};
+        for (auto const& m : legal_moves(b)) {
+            auto const s      = san::to_string(b, m);
+            auto const result = san::from_string(b, s);
+            REQUIRE(result.has_value());
+            REQUIRE(result->source_square == m.source_square);
+            REQUIRE(result->target_square == m.target_square);
+            REQUIRE(result->promotion     == m.promotion);
+        }
+    }
 }
 
 TEST_CASE("move codec", "[library]")

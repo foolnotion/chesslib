@@ -144,6 +144,34 @@ TEST_CASE("bench: UCI parse throughput", "[.bench]")
     REQUIRE(rps >= 200'000.0);
 }
 
+// ─── SAN decode throughput ──────────────────────────────────────────────────
+// Measures from_string in a PGN-import-like loop over all legal moves.
+// Minimum floor: 200k decodes/s (same floor as UCI round-trip).
+TEST_CASE("bench: SAN decode throughput", "[.bench]")
+{
+    namespace nb = ankerl::nanobench;
+    // Kiwipete: 48 legal moves, varied piece types and captures — representative.
+    chesslib::board b{"r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"};
+    auto moves = chesslib::legal_moves(b);
+
+    std::vector<std::string> sans;
+    sans.reserve(moves.size());
+    for (auto const& m : moves) {
+        sans.push_back(chesslib::san::to_string(b, m));
+    }
+
+    std::size_t i = 0;
+    auto bench = make_bench().run("SAN decode", [&]() {
+        auto result = chesslib::san::from_string(b, sans[i % sans.size()]);
+        nb::doNotOptimizeAway(result);
+        ++i;
+    });
+
+    auto dps = ops_per_sec(bench);
+    INFO("decodes/s: " << static_cast<long long>(dps));
+    REQUIRE(dps >= 200'000.0);
+}
+
 // ─── Zobrist hash throughput ─────────────────────────────────────────────────
 // Full recompute from a complex position.
 // Minimum floor: 1M hashes/s.
