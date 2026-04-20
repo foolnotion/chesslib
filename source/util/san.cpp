@@ -187,8 +187,13 @@ auto find_san_move_targeted(board& b, piece p, int tgt_sq, u8 promo,
         }
 
     } else {
-        // Non-pawn: target must be empty or hold an enemy piece.
+        // Non-pawn: target must be empty or hold a capturable enemy piece.
+        // Capturing the king is never a legal SAN move and the move generator
+        // never generates it; reject early to stay consistent.
         if (b.color_at(tgt_sq) == my_color) {
+            return tl::unexpected{error::no_matching_move};
+        }
+        if (b.piece_at(tgt_sq) == piece::king) {
             return tl::unexpected{error::no_matching_move};
         }
         u8 const cap = b.piece_at(tgt_sq) != piece::none ? 1u : 0u;

@@ -972,7 +972,7 @@ TEST_CASE("san", "[library]")
     }
 
     SECTION("from_string - en passant") {
-        // white d5-pawn, black just played e7-e5; white exd6 en passant
+        // white d5-pawn, black just played e7-e5; white dxe6 en passant
         board b{"rnbqkbnr/pppp1ppp/8/3Pp3/8/8/PPP1PPPP/RNBQKBNR w KQkq e6 0 3"};
         auto result = san::from_string(b, "dxe6");
         REQUIRE(result.has_value());
@@ -1021,9 +1021,8 @@ TEST_CASE("san", "[library]")
     }
 
     SECTION("from_string - ambiguous SAN rejected") {
-        // Two knights can both reach f3; bare "Nf3" is ambiguous
+        // Two knights can both reach c3; bare "Nc3" is ambiguous
         board b{"4k3/8/8/8/8/8/8/1N1NK3 w - - 0 1"};
-        // b1 and d1 knights can both reach c3; test for ambiguous error
         auto result = san::from_string(b, "Nc3");
         REQUIRE(!result.has_value());
         REQUIRE(result.error() == san::error::ambiguous);

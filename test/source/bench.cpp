@@ -1,5 +1,7 @@
 #include <chrono>
+#include <string>
 #include <string_view>
+#include <vector>
 
 #include <catch2/catch_test_macros.hpp>
 #include <nanobench.h>
@@ -158,6 +160,10 @@ TEST_CASE("bench: SAN decode throughput", "[.bench]")
     sans.reserve(moves.size());
     for (auto const& m : moves) {
         sans.push_back(chesslib::san::to_string(b, m));
+    }
+    REQUIRE(!sans.empty());
+    for (auto const& s : sans) {
+        REQUIRE(chesslib::san::from_string(b, s).has_value());
     }
 
     std::size_t i = 0;
