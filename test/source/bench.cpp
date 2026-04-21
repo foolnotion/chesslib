@@ -4,9 +4,9 @@
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
-#include <nanobench.h>
 #include <chesslib/chesslib.hpp>
 #include <chesslib/util/perft.hpp>
+#include <nanobench.h>
 
 /*
  * Performance regression tests.  Excluded from the normal test run — invoke
@@ -16,22 +16,27 @@
  * Microbenchmarks use nanobench for statistical sampling and warmup.
  */
 
-namespace {
+namespace
+{
 using clock = std::chrono::steady_clock;
 
-auto elapsed_ns(clock::time_point t0) -> double {
-    auto dt = std::chrono::duration_cast<std::chrono::nanoseconds>(clock::now() - t0);
+auto elapsed_ns(clock::time_point t0) -> double
+{
+    auto dt =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(clock::now() - t0);
     return static_cast<double>(dt.count());
 }
 
-auto measure_perft_nps(std::string_view fen, int depth) -> double {
-    auto t0    = clock::now();
+auto measure_perft_nps(std::string_view fen, int depth) -> double
+{
+    auto t0 = clock::now();
     auto nodes = chesslib::perft(fen, depth);
     auto dt_ns = elapsed_ns(t0);
     return static_cast<double>(nodes) / (dt_ns / 1e9);
 }
 
-auto make_bench() -> ankerl::nanobench::Bench {
+auto make_bench() -> ankerl::nanobench::Bench
+{
     return ankerl::nanobench::Bench()
         .warmup(200)
         .minEpochIterations(500)
@@ -39,13 +44,14 @@ auto make_bench() -> ankerl::nanobench::Bench {
 }
 
 // Extract median ops/second from the last result.
-auto ops_per_sec(ankerl::nanobench::Bench const& bench) -> double {
+auto ops_per_sec(ankerl::nanobench::Bench const& bench) -> double
+{
     namespace nb = ankerl::nanobench;
     auto const& r = bench.results().back();
-    auto median_s = r.median(nb::Result::Measure::elapsed); // seconds per op
+    auto median_s = r.median(nb::Result::Measure::elapsed);  // seconds per op
     return median_s > 0.0 ? 1.0 / median_s : 0.0;
 }
-} // namespace
+}  // namespace
 
 // ─── Perft throughput ───────────────────────────────────────────────────────
 // Exercises the full make/undo + move-generation + legality-filter pipeline.
@@ -65,7 +71,8 @@ TEST_CASE("bench: perft NPS - position 2 (Kiwipete)", "[.bench]")
 {
     // depth 4 → 4,085,603 nodes
     auto nps = measure_perft_nps(
-        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1", 4);
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+        4);
     INFO("NPS: " << static_cast<long long>(nps));
     REQUIRE(nps >= min_perft_nps);
 }
@@ -90,15 +97,19 @@ TEST_CASE("bench: FEN parse throughput", "[.bench]")
         "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
         "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1",
         "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
-        "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10",
+        "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 "
+        "10",
     };
 
     std::size_t i = 0;
-    auto bench = make_bench().run("FEN parse", [&]() {
-        auto b = chesslib::fen::read_or_throw(fens[i % fens.size()]);
-        nb::doNotOptimizeAway(b);
-        ++i;
-    });
+    auto bench = make_bench().run(
+        "FEN parse",
+        [&]()
+        {
+            auto b = chesslib::fen::read_or_throw(fens[i % fens.size()]);
+            nb::doNotOptimizeAway(b);
+            ++i;
+        });
 
     auto pps = ops_per_sec(bench);
     INFO("parses/s: " << static_cast<long long>(pps));
@@ -111,12 +122,15 @@ TEST_CASE("bench: FEN parse throughput", "[.bench]")
 TEST_CASE("bench: legal_moves throughput", "[.bench]")
 {
     namespace nb = ankerl::nanobench;
-    chesslib::board b{"r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"};
+    chesslib::board b {
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"};
 
-    auto bench = make_bench().run("legal_moves", [&]() {
-        auto moves = chesslib::legal_moves(b);
-        nb::doNotOptimizeAway(moves);
-    });
+    auto bench = make_bench().run("legal_moves",
+                                  [&]()
+                                  {
+                                      auto moves = chesslib::legal_moves(b);
+                                      nb::doNotOptimizeAway(moves);
+                                  });
 
     auto gps = ops_per_sec(bench);
     INFO("generations/s: " << static_cast<long long>(gps));
@@ -133,13 +147,16 @@ TEST_CASE("bench: UCI parse throughput", "[.bench]")
     auto moves = chesslib::legal_moves(b);
 
     std::size_t i = 0;
-    auto bench = make_bench().run("UCI round-trip", [&]() {
-        auto const& m = moves[i % moves.size()];
-        auto s        = chesslib::uci::to_string(m);
-        auto result   = chesslib::uci::from_string(b, s);
-        nb::doNotOptimizeAway(result);
-        ++i;
-    });
+    auto bench = make_bench().run("UCI round-trip",
+                                  [&]()
+                                  {
+                                      auto const& m = moves[i % moves.size()];
+                                      auto s = chesslib::uci::to_string(m);
+                                      auto result =
+                                          chesslib::uci::from_string(b, s);
+                                      nb::doNotOptimizeAway(result);
+                                      ++i;
+                                  });
 
     auto rps = ops_per_sec(bench);
     INFO("round-trips/s: " << static_cast<long long>(rps));
@@ -152,8 +169,10 @@ TEST_CASE("bench: UCI parse throughput", "[.bench]")
 TEST_CASE("bench: SAN decode throughput", "[.bench]")
 {
     namespace nb = ankerl::nanobench;
-    // Kiwipete: 48 legal moves, varied piece types and captures — representative.
-    chesslib::board b{"r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"};
+    // Kiwipete: 48 legal moves, varied piece types and captures —
+    // representative.
+    chesslib::board b {
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"};
     auto moves = chesslib::legal_moves(b);
 
     std::vector<std::string> sans;
@@ -167,15 +186,70 @@ TEST_CASE("bench: SAN decode throughput", "[.bench]")
     }
 
     std::size_t i = 0;
-    auto bench = make_bench().run("SAN decode", [&]() {
-        auto result = chesslib::san::from_string(b, sans[i % sans.size()]);
-        nb::doNotOptimizeAway(result);
-        ++i;
-    });
+    auto bench = make_bench().run("SAN decode",
+                                  [&]()
+                                  {
+                                      auto result = chesslib::san::from_string(
+                                          b, sans[i % sans.size()]);
+                                      nb::doNotOptimizeAway(result);
+                                      ++i;
+                                  });
 
     auto dps = ops_per_sec(bench);
     INFO("decodes/s: " << static_cast<long long>(dps));
     REQUIRE(dps >= 200'000.0);
+}
+
+// ─── SAN decode + make throughput ───────────────────────────────────────────
+// Closer to PGN import usage: decode SAN, then apply the move on a rolling
+// board. Minimum floor intentionally conservative.
+TEST_CASE("bench: SAN decode+make throughput", "[.bench]")
+{
+    namespace nb = ankerl::nanobench;
+    static constexpr std::array opening = {"e4",
+                                           "e5",
+                                           "Nf3",
+                                           "Nc6",
+                                           "Bb5",
+                                           "a6",
+                                           "Ba4",
+                                           "Nf6",
+                                           "O-O",
+                                           "Be7",
+                                           "Re1",
+                                           "b5",
+                                           "Bb3",
+                                           "d6",
+                                           "c3",
+                                           "O-O"};
+
+    {
+        chesslib::board b;
+        for (auto const& san_move : opening) {
+            auto result = chesslib::san::from_string(b, san_move);
+            REQUIRE(result.has_value());
+            chesslib::move_maker maker {b, *result};
+            maker.make();
+        }
+    }
+
+    auto bench = make_bench().run(
+        "SAN decode+make",
+        [&]()
+        {
+            chesslib::board b;
+            for (auto const& san_move : opening) {
+                auto result = chesslib::san::from_string(b, san_move);
+                nb::doNotOptimizeAway(result);
+                chesslib::move_maker maker {b, *result};
+                maker.make();
+            }
+            nb::doNotOptimizeAway(b.hash());
+        });
+
+    auto gps = ops_per_sec(bench) * static_cast<double>(opening.size());
+    INFO("decode+makes/s: " << static_cast<long long>(gps));
+    REQUIRE(gps >= 200'000.0);
 }
 
 // ─── Zobrist hash throughput ─────────────────────────────────────────────────
@@ -184,12 +258,12 @@ TEST_CASE("bench: SAN decode throughput", "[.bench]")
 TEST_CASE("bench: Zobrist hash throughput", "[.bench]")
 {
     namespace nb = ankerl::nanobench;
-    chesslib::board b{"r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"};
-    chesslib::zobrist::hasher h{};
+    chesslib::board b {
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"};
+    chesslib::zobrist::hasher h {};
 
-    auto bench = make_bench().run("Zobrist hash", [&]() {
-        nb::doNotOptimizeAway(h(b));
-    });
+    auto bench = make_bench().run("Zobrist hash",
+                                  [&]() { nb::doNotOptimizeAway(h(b)); });
 
     auto hps = ops_per_sec(bench);
     INFO("hashes/s: " << static_cast<long long>(hps));
