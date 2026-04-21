@@ -4,159 +4,116 @@
 #include <array>
 #include <utility>
 
-#include "encoding.hpp"
 #include "chesslib/core/zobrist.hpp"
 #include "chesslib/util/fen.hpp"
+#include "encoding.hpp"
 
 namespace me = magic_enum;
 
-namespace chesslib {
+namespace chesslib
+{
 
 using namespace encoding;
 
-struct board_state {
-    side_to_move side{side_to_move::white};
-    castling_rights castling{0b1111};
-    square enpassant{square::none};
-    square white_king{square::e1};
-    square black_king{square::e8};
-    u8  halfmove_clock{0};
-    u16 fullmove_number{1};
+struct board_state
+{
+    side_to_move side {side_to_move::white};
+    castling_rights castling {0b1111};
+    square enpassant {square::none};
+    square white_king {square::e1};
+    square black_king {square::e8};
+    u8 halfmove_clock {0};
+    u16 fullmove_number {1};
 
-    auto operator==(board_state const& s) const -> bool {
-        return std::tie(side, castling, enpassant, white_king, black_king, halfmove_clock, fullmove_number) ==
-               std::tie(s.side, s.castling, s.enpassant, s.white_king, s.black_king, s.halfmove_clock, s.fullmove_number);
+    auto operator==(board_state const& s) const -> bool
+    {
+        return std::tie(side,
+                        castling,
+                        enpassant,
+                        white_king,
+                        black_king,
+                        halfmove_clock,
+                        fullmove_number)
+            == std::tie(s.side,
+                        s.castling,
+                        s.enpassant,
+                        s.white_king,
+                        s.black_king,
+                        s.halfmove_clock,
+                        s.fullmove_number);
     }
 };
 
 class board
 {
-    auto attacked_by_pawn(int square_idx, side_to_move side) const -> bool {
+    template<piece P>
+    static constexpr bool is_sliding_v =
+        (is<piece::bishop, piece::rook, piece::queen>(P));
+
+    template<piece... Pieces>
+        requires(is_sliding_v<Pieces> && ...) || (!is_sliding_v<Pieces> && ...)
+    auto attacked_by(auto const& offsets, auto square_idx, auto side) const
+        -> bool
+    {
         if (!coord::valid(square_idx)) {
             return false;
         }
+        auto const c = static_cast<color>(side);
 
-        auto const attacker = static_cast<color>(side);
-        auto const left = square_idx + (side == side_to_move::white ? coord::sw : coord::nw);
-        if (coord::valid(left)) {
-            auto const idx = static_cast<size_t>(left);
-            if (colors_[idx] == attacker && pieces_[idx] == piece::pawn) {
-                return true;
-            }
-        }
-
-        auto const right = square_idx + (side == side_to_move::white ? coord::se : coord::ne);
-        if (!coord::valid(right)) {
-            return false;
-        }
-
-        auto const idx = static_cast<size_t>(right);
-        return colors_[idx] == attacker && pieces_[idx] == piece::pawn;
-    }
-
-    auto attacked_by_knight(int square_idx, side_to_move side) const -> bool {
-        if (!coord::valid(square_idx)) {
-            return false;
-        }
-
-        auto const attacker = static_cast<color>(side);
-        for (auto const offset : knight_offsets) {
-            auto const candidate = square_idx + offset;
-            if (!coord::valid(candidate)) {
-                continue;
-            }
-
-            auto const idx = static_cast<size_t>(candidate);
-            if (colors_[idx] == attacker && pieces_[idx] == piece::knight) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    auto attacked_by_king(int square_idx, side_to_move side) const -> bool {
-        if (!coord::valid(square_idx)) {
-            return false;
-        }
-
-        auto const attacker = static_cast<color>(side);
-        for (auto const offset : king_offsets) {
-            auto const candidate = square_idx + offset;
-            if (!coord::valid(candidate)) {
-                continue;
-            }
-
-            auto const idx = static_cast<size_t>(candidate);
-            if (colors_[idx] == attacker && pieces_[idx] == piece::king) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    auto attacked_by_slider(int square_idx,
-                            side_to_move side,
-                            auto const& offsets,
-                            piece primary,
-                            piece secondary) const -> bool {
-        if (!coord::valid(square_idx)) {
-            return false;
-        }
-
-        auto const attacker = static_cast<color>(side);
-        for (auto const offset : offsets) {
-            for (auto candidate = square_idx + offset;
-                 coord::valid(candidate);
-                 candidate += offset)
-            {
-                auto const idx = static_cast<size_t>(candidate);
-                auto const found = pieces_[idx];
-                if (found == piece::none) {
-                    continue;
-                }
-                if (colors_[idx] == attacker
-                    && (found == primary || found == secondary))
-                {
+        for (auto const i : offsets) {
+            if constexpr ((is_sliding_v<Pieces> && ...)) {
+                for (auto j = square_idx + i; coord::valid(j); j += i) {
+                    auto const p = piece_at(j);
+                    if (p == piece::none) {
+                        continue;
+                    }
+                    if (!(c == color_at(j) && is<Pieces...>(p))) {
+                        break;
+                    }
                     return true;
                 }
-                break;
+            } else {
+                if (auto j = square_idx + i; coord::valid(j)) {
+                    if (!(c == color_at(j) && is<Pieces...>(piece_at(j)))) {
+                        continue;
+                    }
+                    return true;
+                }
             }
         }
-
         return false;
     }
 
     // private state
     board_state state_;
 
-    public:
-    static constexpr std::array pawn_offsets  {+15, +16, +17, +32};
-    static constexpr std::array knight_offsets{-33, -31, -18, -14, +14, +18, +31, +33};
-    static constexpr std::array bishop_offsets{-17, -15, +15, +17};
-    static constexpr std::array rook_offsets  {-16, -1, +1, +16};
-    static constexpr std::array queen_offsets {-17, -16, -15, -1, +1, +15, +16, +17};
-    static constexpr std::array king_offsets  {-17, -16, -15, -1, +1, +15, +16, +17};
+  public:
+    static constexpr std::array pawn_offsets {+15, +16, +17, +32};
+    static constexpr std::array knight_offsets {
+        -33, -31, -18, -14, +14, +18, +31, +33};
+    static constexpr std::array bishop_offsets {-17, -15, +15, +17};
+    static constexpr std::array rook_offsets {-16, -1, +1, +16};
+    static constexpr std::array queen_offsets {
+        -17, -16, -15, -1, +1, +15, +16, +17};
+    static constexpr std::array king_offsets {
+        -17, -16, -15, -1, +1, +15, +16, +17};
 
-    board() {
-        hash_ = zobrist::hasher::recompute(*this);
-    }
+    board() { hash_ = zobrist::hasher::recompute(*this); }
 
-    explicit board(std::string_view fen) {
-        *this = fen::read_or_throw(fen);
-    }
+    explicit board(std::string_view fen) { *this = fen::read_or_throw(fen); }
 
-    auto operator==(board const& b) const -> bool {
-        return state_ == b.state_ && pieces_ == b.pieces_ && colors_ == b.colors_ && hash_ == b.hash_;
+    auto operator==(board const& b) const -> bool
+    {
+        return state_ == b.state_ && pieces_ == b.pieces_
+            && colors_ == b.colors_ && hash_ == b.hash_;
     }
 
     auto reset() -> void
     {
         pieces_ = encoding::default_pieces();
         colors_ = encoding::default_colors();
-        state_  = board_state{};
-        hash_   = zobrist::hasher::recompute(*this);
+        state_ = board_state {};
+        hash_ = zobrist::hasher::recompute(*this);
     }
 
     auto clear() -> void
@@ -165,13 +122,13 @@ class board
             pieces_[i] = piece::none;
             colors_[i] = color::none;
         }
-        state_ = board_state{
-            .side            = side_to_move::white,
-            .castling        = static_cast<castling_rights>(0),
-            .enpassant       = square::none,
-            .white_king      = square::none,
-            .black_king      = square::none,
-            .halfmove_clock  = 0,
+        state_ = board_state {
+            .side = side_to_move::white,
+            .castling = static_cast<castling_rights>(0),
+            .enpassant = square::none,
+            .white_king = square::none,
+            .black_king = square::none,
+            .halfmove_clock = 0,
             .fullmove_number = 1,
         };
         hash_ = zobrist::hasher::recompute(*this);
@@ -179,11 +136,15 @@ class board
 
     auto is_attacked(int i, side_to_move s) const -> bool
     {
-        return attacked_by_pawn(i, s)
-            || attacked_by_knight(i, s)
-            || attacked_by_slider(i, s, bishop_offsets, piece::bishop, piece::queen)
-            || attacked_by_slider(i, s, rook_offsets, piece::rook, piece::queen)
-            || attacked_by_king(i, s);
+        using enum piece;
+        auto const pawn_capture_offsets = s == side_to_move::white
+            ? std::array {coord::sw, coord::se}
+            : std::array {coord::nw, coord::ne};
+        return attacked_by<pawn>(pawn_capture_offsets, i, s)
+            || attacked_by<knight>(knight_offsets, i, s)
+            || attacked_by<bishop, queen>(bishop_offsets, i, s)
+            || attacked_by<rook, queen>(rook_offsets, i, s)
+            || attacked_by<king>(king_offsets, i, s);
     }
 
     auto is_attacked(square sq, side_to_move s) const -> bool
@@ -191,15 +152,17 @@ class board
         return is_attacked(me::enum_integer(sq), s);
     }
 
-    // Is the king of side s currently in check (or in an adjacent-kings position)?
-    auto is_king_in_check(side_to_move s) const -> bool {
+    // Is the king of side s currently in check (or in an adjacent-kings
+    // position)?
+    auto is_king_in_check(side_to_move s) const -> bool
+    {
         auto const [a, b] = coord::file_rank(state_.white_king);
         auto const [c, d] = coord::file_rank(state_.black_king);
-        // Adjacent kings constitute an illegal position. Returning true here causes
-        // move_maker::check() to reject any move that would bring the kings within
-        // one square of each other — correct behaviour, since such a position can
-        // never arise from legal play.
-        if (std::abs(a-c) <= 1 && std::abs(b-d) <= 1) {
+        // Adjacent kings constitute an illegal position. Returning true here
+        // causes move_maker::check() to reject any move that would bring the
+        // kings within one square of each other — correct behaviour, since such
+        // a position can never arise from legal play.
+        if (std::abs(a - c) <= 1 && std::abs(b - d) <= 1) {
             return true;
         }
         return s == side_to_move::white
@@ -208,11 +171,15 @@ class board
     }
 
     // Is the side to move's king currently in check?
-    auto is_king_in_check() const -> bool { return is_king_in_check(state_.side); }
+    auto is_king_in_check() const -> bool
+    {
+        return is_king_in_check(state_.side);
+    }
 
     auto operator[](int i) const -> std::tuple<piece, color>
     {
-        return {pieces_[static_cast<size_t>(i)], colors_[static_cast<size_t>(i)]};
+        return {pieces_[static_cast<size_t>(i)],
+                colors_[static_cast<size_t>(i)]};
     }
 
     auto operator[](square sq) const -> std::tuple<piece, color>
@@ -220,46 +187,74 @@ class board
         return (*this)[me::enum_integer(sq)];
     }
 
-    auto piece_at(int sq)    const -> piece  { return pieces_[static_cast<size_t>(sq)]; }
-    auto color_at(int sq)    const -> color  { return colors_[static_cast<size_t>(sq)]; }
-    auto piece_at(square sq) const -> piece  { return piece_at(me::enum_integer(sq)); }
-    auto color_at(square sq) const -> color  { return color_at(me::enum_integer(sq)); }
+    auto piece_at(int sq) const -> piece
+    {
+        return pieces_[static_cast<size_t>(sq)];
+    }
+    auto color_at(int sq) const -> color
+    {
+        return colors_[static_cast<size_t>(sq)];
+    }
+    auto piece_at(square sq) const -> piece
+    {
+        return piece_at(me::enum_integer(sq));
+    }
+    auto color_at(square sq) const -> color
+    {
+        return color_at(me::enum_integer(sq));
+    }
 
-    auto import_fen(std::string_view fen) -> void { *this = fen::read_or_throw(fen); }
+    auto import_fen(std::string_view fen) -> void
+    {
+        *this = fen::read_or_throw(fen);
+    }
     auto export_fen() const -> std::string { return fen::write(*this); }
 
-    auto state()     const -> board_state const& { return state_; }
-    auto side()      const -> side_to_move  { return state_.side; }
-    auto enpassant() const -> square        { return state_.enpassant; }
-    auto castling()  const -> castling_rights { return state_.castling; }
+    auto state() const -> board_state const& { return state_; }
+    auto side() const -> side_to_move { return state_.side; }
+    auto enpassant() const -> square { return state_.enpassant; }
+    auto castling() const -> castling_rights { return state_.castling; }
 
-    auto white_to_move() const -> bool { return state_.side == side_to_move::white; }
-    auto black_to_move() const -> bool { return state_.side == side_to_move::black; }
+    auto white_to_move() const -> bool
+    {
+        return state_.side == side_to_move::white;
+    }
+    auto black_to_move() const -> bool
+    {
+        return state_.side == side_to_move::black;
+    }
 
-    // Low-level mutation used by move_maker. No invariant checking; caller is responsible.
-    auto place(square sq, piece p, color c) -> void {
+    // Low-level mutation used by move_maker. No invariant checking; caller is
+    // responsible.
+    auto place(square sq, piece p, color c) -> void
+    {
         auto const i = static_cast<size_t>(me::enum_integer(sq));
-        pieces_[i] = p; colors_[i] = c;
+        pieces_[i] = p;
+        colors_[i] = c;
     }
-    auto remove(square sq) -> void {
+    auto remove(square sq) -> void
+    {
         auto const i = static_cast<size_t>(me::enum_integer(sq));
-        pieces_[i] = piece::none; colors_[i] = color::none;
+        pieces_[i] = piece::none;
+        colors_[i] = color::none;
     }
-    auto move_piece(square src, square tgt) -> void {
+    auto move_piece(square src, square tgt) -> void
+    {
         auto const s = static_cast<size_t>(me::enum_integer(src));
         auto const t = static_cast<size_t>(me::enum_integer(tgt));
         pieces_[t] = std::exchange(pieces_[s], piece::none);
         colors_[t] = std::exchange(colors_[s], color::none);
     }
-    auto swap_squares(square a, square b) -> void {
+    auto swap_squares(square a, square b) -> void
+    {
         auto const ai = static_cast<size_t>(me::enum_integer(a));
         auto const bi = static_cast<size_t>(me::enum_integer(b));
         std::swap(pieces_[ai], pieces_[bi]);
         std::swap(colors_[ai], colors_[bi]);
     }
     auto set_state(board_state const& s) -> void { state_ = s; }
-    auto hash()                          const -> u64  { return hash_; }
-    auto set_hash(u64 h)                       -> void { hash_ = h; }
+    auto hash() const -> u64 { return hash_; }
+    auto set_hash(u64 h) -> void { hash_ = h; }
 
     // printing functions
     auto print(std::string indent = "") const -> void;
@@ -267,33 +262,39 @@ class board
     // debugging functions
     static auto diff(board const& a, board const& b) -> void;
 
-    private:
+  private:
     std::array<piece, encoding::length> pieces_ {encoding::default_pieces()};
     std::array<color, encoding::length> colors_ {encoding::default_colors()};
     u64 hash_ {0};
 
     friend struct move_generator;
     friend struct zobrist::hasher;
-    friend auto fen::read(std::string_view fen) -> tl::expected<board, fen::parse_error>;
+    friend auto fen::read(std::string_view fen)
+        -> tl::expected<board, fen::parse_error>;
     friend auto fen::write(board const& b) -> std::string;
 };  // board
 
-
-struct move_maker {
+struct move_maker
+{
     explicit move_maker(board& b, move m)
-        : board_{b}, state_{board_.state()}, move_{m} {}
+        : board_ {b}
+        , state_ {board_.state()}
+        , move_ {m}
+    {
+    }
 
     auto make() -> void;
     auto undo() -> void;
     auto check() -> bool;
     auto captured() const -> piece { return std::get<1>(capture_info_); }
 
-    private:
+  private:
     board& board_;
     board_state state_;
-    hash hash_{};
+    hash hash_ {};
     move move_;
-    std::tuple<u8, piece, color> capture_info_{square::none, piece::none, color::none};
+    std::tuple<u8, piece, color> capture_info_ {
+        square::none, piece::none, color::none};
 };
 
 }  // namespace chesslib
