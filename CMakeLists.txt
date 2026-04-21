@@ -22,6 +22,7 @@ add_library(
     source/util/fen.cpp
     source/util/perft.cpp
     source/util/san.cpp
+    source/util/san_replay.cpp
     source/util/uci.cpp
 )
 add_library(chesslib::chesslib ALIAS chesslib_chesslib)

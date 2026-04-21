@@ -178,6 +178,34 @@ TEST_CASE("bench: SAN decode throughput", "[.bench]")
     REQUIRE(dps >= 200'000.0);
 }
 
+// ─── SAN decode + make throughput ───────────────────────────────────────────
+// Closer to PGN import usage: decode SAN, then apply the move on a rolling
+// board. Minimum floor intentionally conservative.
+TEST_CASE("bench: SAN decode+make throughput", "[.bench]")
+{
+    namespace nb = ankerl::nanobench;
+    static constexpr std::array opening = {
+        "e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4", "Nf6",
+        "O-O", "Be7", "Re1", "b5", "Bb3", "d6", "c3", "O-O"
+    };
+
+    auto bench = make_bench().run("SAN decode+make", [&]() {
+        chesslib::board b;
+        for (auto const& san_move : opening) {
+            auto result = chesslib::san::from_string(b, san_move);
+            nb::doNotOptimizeAway(result);
+            REQUIRE(result.has_value());
+            chesslib::move_maker maker {b, *result};
+            maker.make();
+        }
+        nb::doNotOptimizeAway(b.hash());
+    });
+
+    auto gps = ops_per_sec(bench) * static_cast<double>(opening.size());
+    INFO("decode+makes/s: " << static_cast<long long>(gps));
+    REQUIRE(gps >= 200'000.0);
+}
+
 // ─── Zobrist hash throughput ─────────────────────────────────────────────────
 // Full recompute from a complex position.
 // Minimum floor: 1M hashes/s.

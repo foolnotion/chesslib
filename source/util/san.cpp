@@ -44,8 +44,8 @@ auto has_any_legal_move(board const& b) -> bool {
     move_list pseudo;
     move_generator{mutable_board}.moves(pseudo);
     for (auto const& candidate : pseudo) {
-        move_maker mm{mutable_board, candidate};
-        if (!mm.check()) {
+        auto const moving_piece = b.piece_at(candidate.source_square);
+        if (detail::is_move_legal(mutable_board, candidate, moving_piece)) {
             return true;
         }
     }
@@ -70,8 +70,7 @@ auto disambiguation_flags(board const& b, move current, piece p) -> disambiguati
         if (candidate.target_square != current.target_square) { continue; }
         if (b.piece_at(candidate.source_square) != p) { continue; }
 
-        move_maker mm{mutable_board, candidate};
-        if (mm.check()) { continue; }
+        if (!detail::is_move_legal(mutable_board, candidate, p)) { continue; }
 
         info.any_ambig = true;
         if (coord::file(candidate.source_square) == coord::file(current.source_square)) { info.same_file = true; }
@@ -89,8 +88,8 @@ auto find_san_move(board const& b, auto&& predicate) -> tl::expected<move, error
     move const* found = nullptr;
     for (auto const& candidate : pseudo) {
         if (!predicate(candidate)) { continue; }
-        move_maker mm{mutable_board, candidate};
-        if (mm.check()) { continue; }
+        auto const moving_piece = b.piece_at(candidate.source_square);
+        if (!detail::is_move_legal(mutable_board, candidate, moving_piece)) { continue; }
         if (found != nullptr) {
             return tl::unexpected{error::ambiguous};
         }
@@ -103,12 +102,85 @@ auto find_san_move(board const& b, auto&& predicate) -> tl::expected<move, error
     return *found;
 }
 
-// Target-driven SAN resolution: derives candidate source squares from the
-// target square and piece type rather than generating all pseudo-legal moves.
-// For PGN workloads this is significantly faster because only O(1..8) candidate
-// source squares are tested per call instead of the full move list.
 auto find_san_move_targeted(board& b, piece p, int tgt_sq, u8 promo,
                             int disambig_file, int disambig_rank) -> tl::expected<move, error>
+{
+    auto candidates = detail::enumerate_candidates(b, p, tgt_sq, promo,
+                                                   disambig_file, disambig_rank);
+
+    move const* found = nullptr;
+    for (int i = 0; i < candidates.size(); ++i) {
+        if (!detail::is_move_legal(b, candidates[i], p)) { continue; }
+        if (found != nullptr) { return tl::unexpected{error::ambiguous}; }
+        found = &candidates[i];
+    }
+
+    return found ? tl::expected<move, error>{*found} : tl::unexpected{error::no_matching_move};
+}
+
+} // namespace
+
+// ---- detail implementations (exposed for san_replay) ----
+
+namespace detail {
+
+auto is_move_legal(board& b, move current, piece p) -> bool {
+    if (p == piece::king || current.castling) {
+        move_maker mm{b, current};
+        return !mm.check();
+    }
+
+    auto const saved_hash = b.hash();
+    auto const saved_state = b.state();
+    auto const src = static_cast<square>(current.source_square);
+    auto const tgt = static_cast<square>(current.target_square);
+    auto const mover_color = b.color_at(src);
+
+    auto capture_sq = square::none;
+    auto captured_piece = piece::none;
+    auto captured_color = color::none;
+
+    if (current.enpassant) {
+        auto const offset = saved_state.side == side_to_move::white
+            ? coord::so
+            : coord::no;
+        capture_sq = static_cast<square>(
+            me::enum_integer(saved_state.enpassant) + offset);
+    } else if (current.capture) {
+        capture_sq = tgt;
+    }
+
+    if (capture_sq != square::none) {
+        captured_piece = b.piece_at(capture_sq);
+        captured_color = b.color_at(capture_sq);
+        b.remove(capture_sq);
+    }
+
+    b.move_piece(src, tgt);
+    if (current.promotion) {
+        b.place(tgt, static_cast<piece>(current.promotion), mover_color);
+    }
+
+    auto const legal = !b.is_king_in_check(saved_state.side);
+
+    if (current.promotion) {
+        b.remove(tgt);
+        b.place(src, p, mover_color);
+    } else {
+        b.move_piece(tgt, src);
+    }
+
+    if (capture_sq != square::none) {
+        b.place(capture_sq, captured_piece, captured_color);
+    }
+
+    b.set_hash(saved_hash);
+    return legal;
+}
+
+auto enumerate_candidates(board& b, piece p, int tgt_sq, u8 promo,
+                          int disambig_file, int disambig_rank)
+    -> candidate_list
 {
     auto const white    = b.white_to_move();
     auto const my_color = white ? color::white : color::black;
@@ -126,12 +198,10 @@ auto find_san_move_targeted(board& b, piece p, int tgt_sq, u8 promo,
             && matches_disambig(src_sq);
     };
 
-    // Small fixed-size buffer; a queen has at most 8 rays so 16 is ample.
-    move candidates[16];
-    int  n_cand = 0;
+    candidate_list candidates;
 
     auto push_cand = [&](int src_sq, u8 cap, u8 dbl, u8 enp) {
-        candidates[n_cand++] = move{
+        candidates.push_back(move{
             .source_square = static_cast<u8>(src_sq),
             .target_square = static_cast<u8>(tgt_sq),
             .promotion     = promo,
@@ -139,30 +209,25 @@ auto find_san_move_targeted(board& b, piece p, int tgt_sq, u8 promo,
             .double_pawn   = dbl,
             .enpassant     = enp,
             .castling      = 0,
-        };
+        });
     };
 
     if (p == piece::pawn) {
-        // Pawn move to the back rank must always promote (and vice versa).
         bool const is_promo_rank = white ? (coord::rank(tgt_sq) == 7) : (coord::rank(tgt_sq) == 0);
         if (is_promo_rank != (promo != 0)) {
-            return tl::unexpected{error::no_matching_move};
+            return candidates;
         }
 
-        // Backward offsets from target to source for each pawn move type.
-        // White pawns move north (+16); black pawns move south (-16).
-        int const push1 = white ? -coord::no  : coord::no;   // -16 or +16
-        int const push2 = white ? -coord::nn  : coord::nn;   // -32 or +32
-        int const cap_l = white ? -coord::nw : -coord::sw;   // white: -15; black: +17
-        int const cap_r = white ? -coord::ne : -coord::se;   // white: -17; black: +15
+        int const push1 = white ? -coord::no  : coord::no;
+        int const push2 = white ? -coord::nn  : coord::nn;
+        int const cap_l = white ? -coord::nw : -coord::sw;
+        int const cap_r = white ? -coord::ne : -coord::se;
 
-        // Quiet pushes (target must be empty)
         if (b.piece_at(tgt_sq) == piece::none) {
             int const src1 = tgt_sq + push1;
             if (is_our_piece(src1)) {
                 push_cand(src1, 0, 0, 0);
             }
-            // Double push: pawn must be on its starting rank; intermediate must be clear.
             int const src2 = tgt_sq + push2;
             int const mid  = tgt_sq + push1;
             bool const on_start = white ? (src2 >= square::a2 && src2 <= square::h2)
@@ -173,7 +238,6 @@ auto find_san_move_targeted(board& b, piece p, int tgt_sq, u8 promo,
             }
         }
 
-        // Diagonal captures (normal or en passant)
         auto const ep     = static_cast<int>(b.enpassant());
         bool const has_ep = static_cast<square>(ep) != square::none;
         for (int o : {cap_l, cap_r}) {
@@ -187,14 +251,11 @@ auto find_san_move_targeted(board& b, piece p, int tgt_sq, u8 promo,
         }
 
     } else {
-        // Non-pawn: target must be empty or hold a capturable enemy piece.
-        // Capturing the king is never a legal SAN move and the move generator
-        // never generates it; reject early to stay consistent.
         if (b.color_at(tgt_sq) == my_color) {
-            return tl::unexpected{error::no_matching_move};
+            return candidates;
         }
         if (b.piece_at(tgt_sq) == piece::king) {
-            return tl::unexpected{error::no_matching_move};
+            return candidates;
         }
         u8 const cap = b.piece_at(tgt_sq) != piece::none ? 1u : 0u;
 
@@ -202,8 +263,6 @@ auto find_san_move_targeted(board& b, piece p, int tgt_sq, u8 promo,
             if (is_our_piece(src_sq)) { push_cand(src_sq, cap, 0, 0); }
         };
 
-        // Sliding: reverse-ray from target; stop at first piece on each ray.
-        // That piece is the only candidate along that ray (pieces behind it are blocked).
         auto slide = [&](auto const& offsets) {
             for (auto o : offsets) {
                 for (int j = tgt_sq + o; coord::valid(j); j += o) {
@@ -226,19 +285,71 @@ auto find_san_move_targeted(board& b, piece p, int tgt_sq, u8 promo,
         }
     }
 
-    // Run legality checks only on the small set of candidates.
-    move const* found = nullptr;
-    for (int i = 0; i < n_cand; ++i) {
-        move_maker mm{b, candidates[i]};
-        if (mm.check()) { continue; }
-        if (found != nullptr) { return tl::unexpected{error::ambiguous}; }
-        found = &candidates[i];
-    }
-
-    return found ? tl::expected<move, error>{*found} : tl::unexpected{error::no_matching_move};
+    return candidates;
 }
 
-} // namespace
+auto parse_castle_move(board const& b, bool kingside) -> tl::expected<move, error> {
+    auto const white = b.white_to_move();
+    auto const my_color = white ? color::white : color::black;
+    auto const enemy = white ? side_to_move::black : side_to_move::white;
+
+    auto const king_src = white ? square::e1 : square::e8;
+    auto const king_tgt = kingside
+        ? (white ? square::g1 : square::g8)
+        : (white ? square::c1 : square::c8);
+    auto const rook_sq = kingside
+        ? (white ? square::h1 : square::h8)
+        : (white ? square::a1 : square::a8);
+    auto const required_right = kingside
+        ? (white ? castling_rights::wk : castling_rights::bk)
+        : (white ? castling_rights::wq : castling_rights::bq);
+
+    if (b.piece_at(king_src) != piece::king || b.color_at(king_src) != my_color) {
+        return tl::unexpected{error::no_matching_move};
+    }
+    if (b.piece_at(rook_sq) != piece::rook || b.color_at(rook_sq) != my_color) {
+        return tl::unexpected{error::no_matching_move};
+    }
+    if (me::enum_integer(b.castling() & required_right) == 0) {
+        return tl::unexpected{error::no_matching_move};
+    }
+    if (b.is_king_in_check()) {
+        return tl::unexpected{error::no_matching_move};
+    }
+
+    auto const path_clear = kingside
+        ? (white ? std::array{square::f1, square::g1}
+                 : std::array{square::f8, square::g8})
+        : (white ? std::array{square::d1, square::c1}
+                 : std::array{square::d8, square::c8});
+
+    for (auto sq : path_clear) {
+        if (b.piece_at(sq) != piece::none || b.is_attacked(sq, enemy)) {
+            return tl::unexpected{error::no_matching_move};
+        }
+    }
+
+    if (!kingside) {
+        auto const rook_path_sq = white ? square::b1 : square::b8;
+        if (b.piece_at(rook_path_sq) != piece::none) {
+            return tl::unexpected{error::no_matching_move};
+        }
+    }
+
+    return move{
+        .source_square = static_cast<u8>(king_src),
+        .target_square = static_cast<u8>(king_tgt),
+        .promotion = 0,
+        .capture = 0,
+        .double_pawn = 0,
+        .enpassant = 0,
+        .castling = 1,
+    };
+}
+
+} // namespace detail
+
+// ---- public API ----
 
 auto to_string(board& b, move m) -> std::string {
     std::string result;
@@ -255,7 +366,6 @@ auto to_string(board& b, move m) -> std::string {
             result += piece_letter(p);
         }
 
-        // Disambiguation: scan for other legal moves of the same piece type to the same target
         if (p != piece::pawn) {
             auto const info = disambiguation_flags(b, m, p);
 
@@ -265,14 +375,12 @@ auto to_string(board& b, move m) -> std::string {
                 } else if (!info.same_rank) {
                     result += static_cast<char>('1' + coord::rank(src));
                 } else {
-                    // Both file and rank needed (3+ pieces)
                     result += static_cast<char>('a' + coord::file(src));
                     result += static_cast<char>('1' + coord::rank(src));
                 }
             }
         }
 
-        // Pawn capture: always show source file
         if (p == piece::pawn && m.capture) {
             result += static_cast<char>('a' + coord::file(src));
         }
@@ -288,7 +396,6 @@ auto to_string(board& b, move m) -> std::string {
         }
     }
 
-    // Check / checkmate suffix
     move_maker mm{b, m};
     mm.make();
     if (b.is_king_in_check()) {
@@ -304,7 +411,6 @@ auto from_string(board& b, std::string_view s) -> tl::expected<move, error> {
         return tl::unexpected{error::invalid_syntax};
     }
 
-    // Strip check/mate suffix (these are derived, not load-bearing for matching)
     if (s.back() == '+' || s.back() == '#') {
         s.remove_suffix(1);
     }
@@ -313,19 +419,13 @@ auto from_string(board& b, std::string_view s) -> tl::expected<move, error> {
         return tl::unexpected{error::invalid_syntax};
     }
 
-    // Castling — test O-O-O before O-O (prefix match order)
     if (s == "O-O-O") {
-        return find_san_move(b, [](move const& m) {
-            return m.castling && (m.target_square == square::c1 || m.target_square == square::c8);
-        });
+        return detail::parse_castle_move(b, false);
     }
     if (s == "O-O") {
-        return find_san_move(b, [](move const& m) {
-            return m.castling && (m.target_square == square::g1 || m.target_square == square::g8);
-        });
+        return detail::parse_castle_move(b, true);
     }
 
-    // Promotion suffix: strip "=Q" (standard) or bare "Q" when preceded by a rank digit
     u8 promo{0};
     if (s.size() >= 2 && is_promo_letter(s.back())) {
         char const penult = s[s.size() - 2];
@@ -338,7 +438,6 @@ auto from_string(board& b, std::string_view s) -> tl::expected<move, error> {
         }
     }
 
-    // Target square: last 2 chars
     if (s.size() < 2) {
         return tl::unexpected{error::invalid_syntax};
     }
@@ -350,10 +449,8 @@ auto from_string(board& b, std::string_view s) -> tl::expected<move, error> {
     auto const tgt_sq = static_cast<u8>(coord::square_index(tgt_rank - '1', tgt_file - 'a'));
     s.remove_suffix(2);
 
-    // Capture marker (informational only — we match on the legal move itself)
     if (!s.empty() && s.back() == 'x') { s.remove_suffix(1); }
 
-    // Piece type: uppercase first char = piece; absent or lowercase = pawn
     piece p = piece::pawn;
     if (!s.empty() && std::isupper(static_cast<unsigned char>(s.front()))) {
         p = char_to_piece(s.front());
@@ -363,7 +460,6 @@ auto from_string(board& b, std::string_view s) -> tl::expected<move, error> {
         s.remove_prefix(1);
     }
 
-    // Disambiguation: 0-2 chars remain
     if (s.size() > 2) {
         return tl::unexpected{error::invalid_syntax};
     }

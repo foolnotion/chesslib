@@ -30,6 +30,29 @@ auto to_string(board const& b, move m) -> std::string;
 auto from_string(board& b, std::string_view s) -> tl::expected<move, error>;
 auto from_string(board const& b, std::string_view s) -> tl::expected<move, error>;
 
+namespace detail {
+
+auto is_move_legal(board& b, move m, piece p) -> bool;
+
+struct candidate_list {
+    move data[16];
+    int count{0};
+
+    auto push_back(move m) -> void { data[count++] = m; }
+    auto begin() const -> move const* { return data; }
+    auto end() const -> move const* { return data + count; }
+    auto size() const -> int { return count; }
+    auto operator[](int i) const -> move const& { return data[i]; }
+};
+
+auto enumerate_candidates(board& b, piece p, int tgt_sq, u8 promo,
+                          int disambig_file, int disambig_rank)
+    -> candidate_list;
+
+auto parse_castle_move(board const& b, bool kingside) -> tl::expected<move, error>;
+
+} // namespace detail
+
 } // namespace san
 } // namespace chesslib
 

@@ -31,30 +31,100 @@ struct board_state {
 
 class board
 {
-    template<piece P>
-    static constexpr bool is_sliding_v = (is<piece::bishop, piece::rook, piece::queen>(P));
+    auto attacked_by_pawn(int square_idx, side_to_move side) const -> bool {
+        if (!coord::valid(square_idx)) {
+            return false;
+        }
 
-    template<piece... Pieces>
-    requires (is_sliding_v<Pieces> && ...) || (!is_sliding_v<Pieces> && ...)
-    auto attacked_by(auto const& offsets, auto square_idx, auto side) const -> bool {
-        if (!coord::valid(square_idx)) { return false; }
-        auto const c = static_cast<color>(side);
-
-        for (auto const i : offsets) {
-            if constexpr ((is_sliding_v<Pieces> && ...)) { // sliding pieces
-                for (auto j = square_idx + i; coord::valid(j); j += i) {
-                    auto const p = piece_at(j);
-                    if (p == piece::none) { continue; }
-                    if (!(c == color_at(j) && is<Pieces...>(p))) { break; }
-                    return true;
-                }
-            } else { // not sliding
-                if (auto j = square_idx + i; coord::valid(j)) {
-                    if (!(c == color_at(j) && is<Pieces...>(piece_at(j)))) { continue; }
-                    return true;
-                }
+        auto const attacker = static_cast<color>(side);
+        auto const left = square_idx + (side == side_to_move::white ? coord::sw : coord::nw);
+        if (coord::valid(left)) {
+            auto const idx = static_cast<size_t>(left);
+            if (colors_[idx] == attacker && pieces_[idx] == piece::pawn) {
+                return true;
             }
         }
+
+        auto const right = square_idx + (side == side_to_move::white ? coord::se : coord::ne);
+        if (!coord::valid(right)) {
+            return false;
+        }
+
+        auto const idx = static_cast<size_t>(right);
+        return colors_[idx] == attacker && pieces_[idx] == piece::pawn;
+    }
+
+    auto attacked_by_knight(int square_idx, side_to_move side) const -> bool {
+        if (!coord::valid(square_idx)) {
+            return false;
+        }
+
+        auto const attacker = static_cast<color>(side);
+        for (auto const offset : knight_offsets) {
+            auto const candidate = square_idx + offset;
+            if (!coord::valid(candidate)) {
+                continue;
+            }
+
+            auto const idx = static_cast<size_t>(candidate);
+            if (colors_[idx] == attacker && pieces_[idx] == piece::knight) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    auto attacked_by_king(int square_idx, side_to_move side) const -> bool {
+        if (!coord::valid(square_idx)) {
+            return false;
+        }
+
+        auto const attacker = static_cast<color>(side);
+        for (auto const offset : king_offsets) {
+            auto const candidate = square_idx + offset;
+            if (!coord::valid(candidate)) {
+                continue;
+            }
+
+            auto const idx = static_cast<size_t>(candidate);
+            if (colors_[idx] == attacker && pieces_[idx] == piece::king) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    auto attacked_by_slider(int square_idx,
+                            side_to_move side,
+                            auto const& offsets,
+                            piece primary,
+                            piece secondary) const -> bool {
+        if (!coord::valid(square_idx)) {
+            return false;
+        }
+
+        auto const attacker = static_cast<color>(side);
+        for (auto const offset : offsets) {
+            for (auto candidate = square_idx + offset;
+                 coord::valid(candidate);
+                 candidate += offset)
+            {
+                auto const idx = static_cast<size_t>(candidate);
+                auto const found = pieces_[idx];
+                if (found == piece::none) {
+                    continue;
+                }
+                if (colors_[idx] == attacker
+                    && (found == primary || found == secondary))
+                {
+                    return true;
+                }
+                break;
+            }
+        }
+
         return false;
     }
 
@@ -109,15 +179,11 @@ class board
 
     auto is_attacked(int i, side_to_move s) const -> bool
     {
-        using enum piece;
-        auto const pawn_capture_offsets = s == side_to_move::white
-            ? std::array{coord::sw, coord::se}
-            : std::array{coord::nw, coord::ne};
-        return attacked_by<pawn>         (pawn_capture_offsets, i, s) ||
-               attacked_by<knight>       (knight_offsets, i, s)       ||
-               attacked_by<bishop, queen>(bishop_offsets, i, s)       ||
-               attacked_by<rook,   queen>(rook_offsets,   i, s)       ||
-               attacked_by<king>         (king_offsets,   i, s);
+        return attacked_by_pawn(i, s)
+            || attacked_by_knight(i, s)
+            || attacked_by_slider(i, s, bishop_offsets, piece::bishop, piece::queen)
+            || attacked_by_slider(i, s, rook_offsets, piece::rook, piece::queen)
+            || attacked_by_king(i, s);
     }
 
     auto is_attacked(square sq, side_to_move s) const -> bool
